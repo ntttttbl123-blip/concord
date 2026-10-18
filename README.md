@@ -80,7 +80,7 @@ docker run -p 4400:4400 -v concord-data:/data -e CONCORD_PUBLIC_URL=https://conc
 ```
 
 Concord is a single process with a background indexer and SQLite files, so it needs one
-always-on instance with a local disk. It does not fit serverless hosts.
+always-on instance with a local disk. It does not fit serverless hosts. For operational logs, healthchecks, and indexer alerting, see [`docs/monitoring.md`](docs/monitoring.md).
 
 [`render.yaml`](./render.yaml) deploys it to Render's **free** plan for a preview. That plan has
 no persistent disk: every account, upload and sign-off is erased when the service restarts or
