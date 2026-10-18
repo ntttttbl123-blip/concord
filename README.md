@@ -140,7 +140,8 @@ reconciles on a timer: a new day's comparison needs that day's register.
   `set_authorized` and `clawback` events will show an empty controls log.
 - **Gaps.** If the indexer is down for longer than RPC retention, the events in between are
   lost. Concord detects this, stops indexing the asset and says why; **Rebuild history** in the
-  asset's settings starts it again from fresh opening balances and keeps the uploaded books.
+  asset's settings starts it again from fresh opening balances and keeps the uploaded books. See
+  [`docs/troubleshooting.md`](docs/troubleshooting.md) for every sync and indexing message explained.
 - **Decimals.** Classic assets carry seven. A contract token's are read from the contract; one
   that does not state them has to be told when it is watched.
 - **Email.** None is sent. Addresses are not verified at sign-up, invitations travel by link, and
