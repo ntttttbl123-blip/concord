@@ -72,7 +72,8 @@ pnpm concord --help
 
 The [`Dockerfile`](./Dockerfile) builds one image that serves the API and the dashboard. Give it
 a volume at `/data`, put TLS in front, and set `CONCORD_PUBLIC_URL` to the https address people
-open.
+open. For a turnkey reverse proxy setup with automated Let's Encrypt certificates, HSTS, and
+rate-limiting proxy trust, see the [Caddy TLS recipe](docs/deploy/caddy.md).
 
 ```sh
 docker build -t concord .
