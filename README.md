@@ -133,7 +133,8 @@ reconciles on a timer: a new day's comparison needs that day's register.
   watched from opening balances: every trustline's balance from Horizon, then events from that
   ledger on. Horizon does not list balances held by liquidity pools, claimable balances or
   contracts, so opening balances understate supply by whatever those hold. Holdings before the
-  opening balances cannot be queried.
+  opening balances cannot be queried. For full architecture, retention rules, and timeline diagrams, see
+  [`docs/history-and-baselines.md`](docs/history-and-baselines.md).
 - **Contract tokens.** A SEP-41 token that is not the contract of a classic asset has no opening
   balances to read, so its holdings count only movements from the oldest ledger the RPC keeps.
   The dashboard says so on every page of such an asset. Tokens that do not emit the standard
