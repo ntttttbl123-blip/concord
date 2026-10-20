@@ -21,7 +21,7 @@ Configuration warnings are emitted when running under insecure or non-persistent
 
 ### Background Indexer Logs
 
-When background syncing is active (`config.syncIntervalSec > 0`, defaulting to 15 seconds in `services/api/src/main.ts`), the runner periodically executes `runtime.tenants.syncAll()`.
+When background syncing is active (`config.syncIntervalSec > 0`, configured via `CONCORD_SYNC_INTERVAL` and defaulting to 30 seconds in `services/api/src/config.ts`), the runner periodically executes `runtime.tenants.syncAll()`.
 
 - **Event Progress:** When new events are ingested from the ledger, Concord logs the workspace and asset prefix followed by the event count:
   ```text
