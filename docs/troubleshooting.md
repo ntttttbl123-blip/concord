@@ -32,7 +32,7 @@ This guide explains every user- and operator-facing error message emitted during
 *(Example: `Stellar RPC is unavailable (rpc1.example.com: 429 Too Many Requests; rpc2.example.com: connection timeout)`)*
 
 - **Code Location:** `services/api/src/chain.ts#L237-L241` (`EndpointPool.run`)
-- **Cause:** Every awake endpoint in the pool was attempted within the 25-second execution budget (`BUDGET_MS`), but each endpoint threw an `EndpointFailure` (such as HTTP 429, HTTP 5xx, or network socket timeout).
+- **Cause:** Every awake endpoint in the pool was attempted within the 90-second execution budget (`BUDGET_MS`), but each endpoint threw an `EndpointFailure` (such as HTTP 429, HTTP 5xx, or network socket timeout).
 - **What to look for in logs:**
   - `sync <org>/<asset>: Stellar RPC is unavailable (...)`
 - **Resolution:**
