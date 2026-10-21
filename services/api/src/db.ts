@@ -50,7 +50,11 @@ export class Db {
         this.raw.exec(`PRAGMA user_version = ${i + 1}`);
         this.raw.exec("COMMIT");
       } catch (err) {
-        this.raw.exec("ROLLBACK");
+        try {
+          this.raw.exec("ROLLBACK");
+        } catch {
+          // If the transaction auto-rolled back (e.g. statement error or manual COMMIT), ignore the rollback failure.
+        }
         throw err;
       }
     }
@@ -97,7 +101,11 @@ export class Db {
       this.raw.exec("COMMIT");
       return out;
     } catch (err) {
-      this.raw.exec("ROLLBACK");
+      try {
+        this.raw.exec("ROLLBACK");
+      } catch {
+        // If the transaction auto-rolled back or was rolled back, ignore the rollback failure.
+      }
       throw err;
     }
   }

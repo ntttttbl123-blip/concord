@@ -5,13 +5,14 @@
   "description": "Reconciliation between tokenized securities on Stellar and the official register.",
   "engines": {
     "node": ">=24",
-    "pnpm": ">=9"
+    "pnpm": ">=10.22.0"
   },
   "packageManager": "pnpm@10.22.0",
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
+    "e2e": "pnpm build && pnpm --filter @concord/web e2e",
     "dev": "pnpm --parallel --filter @concord/api --filter @concord/web dev",
     "start": "pnpm --filter @concord/api start",
     "concord": "pnpm --silent --filter @concord/api cli",

@@ -1,11 +1,15 @@
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { Auth } from "../src/auth.js";
 import { StellarSource } from "../src/chain.js";
 import { Concord } from "../src/concord.js";
 import { loadConfig } from "../src/config.js";
 import { Db } from "../src/db.js";
+import { createServerApp } from "../src/main.js";
 import { CONTROL_MIGRATIONS, ORG_MIGRATIONS } from "../src/schema.js";
-import { Tenants, memoryStore } from "../src/tenants.js";
+import { Tenants, fileStore, memoryStore } from "../src/tenants.js";
 import { Client, FakeChain, MAINNET_PASSPHRASE, ORIGIN, PASSPHRASE, at, harness, key, u, type Harness } from "./helpers.js";
 
 /** Strings that exist only in workspace A. None may ever reach workspace B. */
@@ -208,6 +212,57 @@ describe("workspace isolation", () => {
     tenants.forOrg("aaaaaaaaaaaaaaaa");
     const again = new Tenants({ open: () => shared, remove: () => {} }, {}, () => true, () => []);
     expect(() => again.forOrg("bbbbbbbbbbbbbbbb")).toThrow(/belongs to aaaaaaaaaaaaaaaa/);
+  });
+
+  it("deletes SQLite db/WAL/SHM files and only reopens an explicitly known org (#500)", () => {
+    // Exercise the real file store, not the in-memory store used for route tests.
+    const temp = mkdtempSync(join(tmpdir(), "concord-tenant-drop-"));
+    const orgDir = join(temp, "orgs");
+    const alpha = "aaaaaaaaaaaaaaaa";
+    const beta = "bbbbbbbbbbbbbbbb";
+    const stale = "cccccccccccccccc";
+    const known = new Set([alpha, beta]);
+    const tenants = new Tenants(fileStore(temp), {}, (id) => known.has(id), () => [...known]);
+    const paths = (id: string) => [`${id}.db`, `${id}.db-wal`, `${id}.db-shm`];
+    const files = () => readdirSync(orgDir).sort();
+
+    try {
+      const alphaDb = tenants.forOrg(alpha).db;
+      const betaDb = tenants.forOrg(beta).db;
+      alphaDb.run("INSERT INTO meta (key, value) VALUES ('sample', 'ALPHA ONLY')");
+      betaDb.run("INSERT INTO meta (key, value) VALUES ('sample', 'BETA ONLY')");
+
+      // SQLite holds its WAL and shared-memory files while both handles are open.
+      expect(files()).toEqual([...paths(alpha), ...paths(beta)].sort());
+
+      // Invalid path-like ids cannot delete an unrelated file.
+      const sentinel = join(temp, "x.db");
+      writeFileSync(sentinel, "not a workspace");
+      tenants.drop("../x");
+      expect(existsSync(sentinel)).toBe(true);
+      expect(files()).toEqual([...paths(alpha), ...paths(beta)].sort());
+
+      tenants.drop(alpha);
+      expect(files()).toEqual(paths(beta).sort());
+      expect(betaDb.get<{ value: string }>("SELECT value FROM meta WHERE key = 'sample'")?.value).toBe("BETA ONLY");
+
+      known.delete(alpha);
+      expect(() => tenants.forOrg(alpha)).toThrow(/no such workspace/);
+      expect(files()).toEqual(paths(beta).sort()); // rejected reopen creates nothing
+
+      known.add(alpha);
+      const fresh = tenants.forOrg(alpha).db;
+      expect(fresh.get("SELECT value FROM meta WHERE key = 'sample'")).toBeUndefined();
+      expect(files()).toEqual([...paths(alpha), ...paths(beta)].sort());
+
+      // A never-opened id can still have stale on-disk artifacts after a crash.
+      for (const name of paths(stale)) writeFileSync(join(orgDir, name), "stale");
+      tenants.drop(stale);
+      expect(files()).toEqual([...paths(alpha), ...paths(beta)].sort());
+    } finally {
+      tenants.close();
+      rmSync(temp, { recursive: true, force: true });
+    }
   });
 
   it("deletes a workspace without touching its neighbour", async () => {
@@ -660,6 +715,47 @@ describe("chain endpoints", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("does not rest an endpoint on request faults (400, 404, 422)", async () => {
+    const a = "https://a.example";
+    const { calls, deps } = scripted({
+      [a]: [
+        () => new Response("bad request", { status: 400 }),
+        health,
+      ],
+    });
+    const source = new StellarSource(network([a, "https://b.example"]), deps);
+    await expect(source.latestLedger()).rejects.toThrow(/HTTP 400/);
+    expect(calls).toHaveLength(1);
+    // Endpoint `a` was not rested: the subsequent call hits `a` immediately rather than falling back or waiting.
+    const head = await source.latestLedger();
+    expect(head.latest).toBe(50);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.url).toBe(a);
+  });
+
+  it("rests an endpoint on 401/403 with a distinct message", async () => {
+    const a = "https://a.example/bad-key";
+    const b = "https://b.example";
+    const { calls, deps } = scripted({
+      [a]: [() => new Response("unauthorized", { status: 401 })],
+      [b]: [health, health],
+    });
+    const source = new StellarSource(network([a, b]), deps);
+    const head = await source.latestLedger();
+    expect(head.latest).toBe(50);
+    expect(calls.map((c) => c.url)).toEqual([a, b]);
+    // Endpoint `a` is now resting due to bad API key, so next call goes straight to `b`.
+    await source.latestLedger();
+    expect(calls.map((c) => c.url)).toEqual([a, b, b]);
+
+    // When all endpoints fail with 401/403, error message reports bad API key.
+    const badKeyScript = scripted({ [a]: [() => new Response("forbidden", { status: 403 })] });
+    const failingSource = new StellarSource(network([a]), badKeyScript.deps);
+    const err = await failingSource.latestLedger().catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("a.example: bad API key");
+  });
+
   it("reads opening balances page by page from one Horizon, and refuses one that goes backwards", async () => {
     const issuer = key();
     const [h1, h2] = [key(), key()];
@@ -714,6 +810,66 @@ describe("chain endpoints", () => {
     expect(found[0]!.asset).toBe(`BENJI:${i2}`);
     expect(found[0]!.contractId).toMatch(/^C[A-Z2-7]{55}$/);
   });
+
+  it("fails over to the next Horizon endpoint when _embedded.records is omitted, and reports ChainError naming hosts if all fail", async () => {
+    const h1 = "https://h1.example";
+    const h2 = "https://h2.example";
+    const net = {
+      name: "mainnet" as const,
+      passphrase: MAINNET_PASSPHRASE,
+      rpc: [{ url: "https://rpc.example" }],
+      horizon: [{ url: h1 }, { url: h2 }],
+    };
+
+    // Test search(): h1 returns malformed { title: "oops" }, h2 succeeds
+    const okSearch = () => new Response(JSON.stringify({ _embedded: { records: [] } }));
+    const badBody = () => new Response(JSON.stringify({ title: "oops" }));
+    const s1 = scripted({
+      [`${h1}/assets?asset_code=FOO&limit=200`]: [badBody],
+      [`${h2}/assets?asset_code=FOO&limit=200`]: [okSearch],
+    });
+    const src1 = new StellarSource(net, s1.deps);
+    const searchRes = await src1.search("FOO");
+    expect(searchRes).toEqual([]);
+    expect(s1.calls.map((c) => c.url)).toEqual([
+      `${h1}/assets?asset_code=FOO&limit=200`,
+      `${h2}/assets?asset_code=FOO&limit=200`,
+    ]);
+
+    // Test baseline(): h1 returns malformed accounts page, h2 succeeds
+    const issuer = key();
+    const okAccounts = () => new Response(JSON.stringify({ _links: {}, _embedded: { records: [] } }), {
+      headers: { "latest-ledger": "100" },
+    });
+    const s2 = scripted({
+      [`${h1}/accounts?asset=FOO:${issuer}&limit=200&order=asc`]: [badBody],
+      [`${h2}/accounts?asset=FOO:${issuer}&limit=200&order=asc`]: [okAccounts],
+    });
+    const src2 = new StellarSource(net, s2.deps);
+    const baseRes = await src2.baseline("FOO", issuer, 7);
+    expect(baseRes.ledger).toBe(100);
+    expect(baseRes.openings.size).toBe(0);
+
+    // Test describe(): h1 returns malformed, h2 succeeds
+    const s3 = scripted({
+      [`${h1}/assets?asset_code=FOO&asset_issuer=${issuer}&limit=200`]: [badBody],
+      [`${h2}/assets?asset_code=FOO&asset_issuer=${issuer}&limit=200`]: [okSearch],
+    });
+    const src3 = new StellarSource(net, s3.deps);
+    const descRes = await src3.describe({ id: "C123", code: "FOO", issuer });
+    expect(descRes).toBeUndefined();
+
+    // If all fail, a ChainError names the hosts
+    const sAllFail = scripted({
+      [`${h1}/assets?asset_code=FOO&limit=200`]: [badBody],
+      [`${h2}/assets?asset_code=FOO&limit=200`]: [badBody],
+    });
+    const srcAllFail = new StellarSource(net, sAllFail.deps);
+    const err = await srcAllFail.search("FOO").catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toContain("h1.example: unexpected response");
+    expect(err.message).toContain("h2.example: unexpected response");
+  });
 });
 
 describe("what ships", () => {
@@ -726,6 +882,28 @@ describe("what ships", () => {
     expect(source).not.toMatch(/watchAsset|importRegister|DatabaseSync/);
   });
 
+  it("documents in .env.example every environment variable the service reads", () => {
+    const src = new URL("../src/", import.meta.url);
+    const sources = readdirSync(src, { recursive: true, encoding: "utf8" })
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => readFileSync(new URL(file, src), "utf8"))
+      .join("\n");
+    // Names built per network, e.g. `CONCORD_${upper}_RPC_URLS`, count once for each network.
+    const expanded = ["MAINNET", "TESTNET"].map((upper) => sources.replaceAll("${upper}", upper)).join("\n");
+    // Retired names are read only to be refused, so they belong nowhere in the example.
+    const config = readFileSync(new URL("config.ts", src), "utf8");
+    const retired = new Set(config.match(/const RETIRED[^]*?\n};/)![0].match(/\bCONCORD_[A-Z0-9_]+(?=:)/g));
+    expect(retired.size).toBeGreaterThan(0);
+
+    const example = readFileSync(new URL("../../../.env.example", import.meta.url), "utf8");
+    const concord = new Set(expanded.match(/\bCONCORD_[A-Z0-9_]+/g)!.filter((name) => !retired.has(name)));
+    const undocumented = [...concord].filter((name) => !new RegExp(`^#? ?${name}=`, "m").test(example));
+    // Set by the platform rather than by an operator, so a mention is enough.
+    const platform = [...new Set(sources.match(/\b(PORT|RENDER_EXTERNAL_URL)\b/g))];
+    undocumented.push(...platform.filter((name) => !new RegExp(`\\b${name}\\b`).test(example)));
+    expect(undocumented).toEqual([]);
+  });
+
   it("starts both schemas from nothing and refuses a database from before versioning", () => {
     const control = new Db(":memory:", CONTROL_MIGRATIONS);
     expect(control.get<{ user_version: number }>("PRAGMA user_version")!.user_version).toBe(CONTROL_MIGRATIONS.length);
@@ -733,4 +911,152 @@ describe("what ships", () => {
     expect(org.get<{ foreign_keys: number }>("PRAGMA foreign_keys")!.foreign_keys).toBe(1);
     expect(() => new Db(":memory:", [...ORG_MIGRATIONS, "CREATE TABLE broken (x REFERENCES nowhere (y)); INSERT INTO broken VALUES (1);"])).toThrow();
   });
+
+  it("does not mask the original error when rollback fails in tx and migrate", () => {
+    // 1. In migrate: COMMIT inside migration followed by invalid statement
+    expect(() => {
+      new Db(":memory:", ["CREATE TABLE a (x); COMMIT; CREATE TABLE b (y;"]);
+    }).toThrow(/syntax error|near/i);
+
+    // 2. In tx: transaction already committed or rolled back inside fn
+    const db = new Db(":memory:", []);
+    expect(() => {
+      db.tx(() => {
+        db.raw.exec("COMMIT");
+        throw new Error("original failure");
+      });
+    }).toThrow("original failure");
+  });
+
+  it("does not serve files reached through encoded dot-dot with immutable caching", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "concord-static-"));
+    const webDir = join(dir, "web");
+    const dataDir = join(dir, "data");
+    mkdirSync(join(webDir, "assets"), { recursive: true });
+    mkdirSync(dataDir, { recursive: true });
+
+    writeFileSync(join(webDir, "index.html"), "<html>shell</html>");
+    writeFileSync(join(webDir, "secret.txt"), "secret outside assets");
+    writeFileSync(join(webDir, "assets/app.123.js"), "console.log('asset');");
+
+    const cfg = loadConfig({
+      CONCORD_DATA_DIR: dataDir,
+      CONCORD_WEB_DIR: webDir,
+      CONCORD_SIGNUP: "open",
+    });
+    const control = new Db(join(dataDir, "control.db"), CONTROL_MIGRATIONS);
+    const auth = new Auth(control, { signup: "open" });
+    const tenants = new Tenants(fileStore(dataDir), {}, () => false, () => []);
+    const runtime = { control, auth, tenants, close: () => { tenants.close(); control.close(); } };
+    const app = createServerApp(runtime, cfg);
+
+    try {
+      // Normal asset in webDir/assets gets immutable caching
+      const resAsset = await app.request("/assets/app.123.js");
+      expect(resAsset.status).toBe(200);
+      expect(resAsset.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+
+      // Encoded dot-dot request (/assets/..%2fsecret.txt) returns 404 and never immutable caching
+      const resDotDot1 = await app.request("/assets/..%2fsecret.txt");
+      expect(resDotDot1.status).toBe(404);
+      expect(resDotDot1.headers.get("cache-control") ?? "").not.toContain("immutable");
+
+      // Regular file outside assets directory is not cached with immutable header
+      const resSecret = await app.request("/secret.txt");
+      expect(resSecret.status).toBe(200);
+      expect(resSecret.headers.get("cache-control")).not.toContain("immutable");
+    } finally {
+      runtime.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 404 for missing files with an extension while extensionless routes get index.html", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "concord-static-"));
+    const webDir = join(dir, "web");
+    const dataDir = join(dir, "data");
+    mkdirSync(join(webDir, "assets"), { recursive: true });
+    mkdirSync(dataDir, { recursive: true });
+
+    writeFileSync(join(webDir, "index.html"), "<html>shell</html>");
+    writeFileSync(join(webDir, "favicon.ico"), "fake-ico");
+
+    const cfg = loadConfig({
+      CONCORD_DATA_DIR: dataDir,
+      CONCORD_WEB_DIR: webDir,
+      CONCORD_SIGNUP: "open",
+    });
+    const control = new Db(join(dataDir, "control.db"), CONTROL_MIGRATIONS);
+    const auth = new Auth(control, { signup: "open" });
+    const tenants = new Tenants(fileStore(dataDir), {}, () => false, () => []);
+    const runtime = { control, auth, tenants, close: () => { tenants.close(); control.close(); } };
+    const app = createServerApp(runtime, cfg);
+
+    try {
+      // Existing file returns 200
+      const resFavicon = await app.request("/favicon.ico");
+      expect(resFavicon.status).toBe(200);
+
+      // Missing files with an extension return 404
+      const resMissingIco = await app.request("/missing-favicon.ico");
+      expect(resMissingIco.status).toBe(404);
+
+      const resMissingJs = await app.request("/a/b/c.js");
+      expect(resMissingJs.status).toBe(404);
+
+      const resMissingTxt = await app.request("/robots.txt");
+      expect(resMissingTxt.status).toBe(404);
+
+      // Extensionless route falls back to SPA index.html
+      const resSpa = await app.request("/a/abc/reconciliation");
+      expect(resSpa.status).toBe(200);
+      expect(await resSpa.text()).toBe("<html>shell</html>");
+    } finally {
+      runtime.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses dotfiles from web directory", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "concord-static-"));
+    const webDir = join(dir, "web");
+    const dataDir = join(dir, "data");
+    mkdirSync(join(webDir, "assets"), { recursive: true });
+    mkdirSync(join(webDir, "a/.git"), { recursive: true });
+    mkdirSync(dataDir, { recursive: true });
+
+    writeFileSync(join(webDir, "index.html"), "<html>shell</html>");
+    writeFileSync(join(webDir, ".hidden"), "secret dotfile");
+    writeFileSync(join(webDir, "a/.git/config"), "secret git config");
+    writeFileSync(join(webDir, "assets/x.js"), "console.log('x');");
+
+    const cfg = loadConfig({
+      CONCORD_DATA_DIR: dataDir,
+      CONCORD_WEB_DIR: webDir,
+      CONCORD_SIGNUP: "open",
+    });
+    const control = new Db(join(dataDir, "control.db"), CONTROL_MIGRATIONS);
+    const auth = new Auth(control, { signup: "open" });
+    const tenants = new Tenants(fileStore(dataDir), {}, () => false, () => []);
+    const runtime = { control, auth, tenants, close: () => { tenants.close(); control.close(); } };
+    const app = createServerApp(runtime, cfg);
+
+    try {
+      // /.hidden and /a/.git/config return 404
+      const resDot = await app.request("/.hidden");
+      expect(resDot.status).toBe(404);
+
+      const resSubDot = await app.request("/a/.git/config");
+      expect(resSubDot.status).toBe(404);
+
+      // /assets/x.js still served
+      const resAsset = await app.request("/assets/x.js");
+      expect(resAsset.status).toBe(200);
+      expect(await resAsset.text()).toBe("console.log('x');");
+    } finally {
+      runtime.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
 });

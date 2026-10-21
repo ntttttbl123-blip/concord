@@ -1,0 +1,38 @@
+# Runs Concord with its data in a named volume, restarts it after a reboot, and checks its health.
+#
+# From the repository root:
+#   cp .env.example .env     # then set CONCORD_PUBLIC_URL and, behind a proxy, CONCORD_TRUST_PROXY
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# The image is built from the repository's Dockerfile, because this repository does not publish
+# one. Compose v2.24 or newer is needed for the optional .env file below.
+name: concord
+
+services:
+  concord:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: concord
+    ports:
+      - "4400:4400"
+    env_file:
+      # Settings live in the root .env. It is optional: without it Concord runs with its defaults.
+      # CONCORD_PUBLIC_URL is the https address people open. It sets cookie security and the Google
+      # redirect URI, so set it before anyone outside your machine uses the service.
+      # CONCORD_TRUST_PROXY=1 when a reverse proxy such as nginx or Caddy sits in front, so rate
+      # limits see the client's address rather than the proxy's.
+      - path: ../.env
+        required: false
+    volumes:
+      # Holds control.db and one database per workspace. Deleting this volume deletes the data.
+      - concord-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4400/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+
+volumes:
+  concord-data:

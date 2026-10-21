@@ -146,6 +146,7 @@ function TeamSection() {
       await fn();
       team.reload();
     });
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   return (
     <Section title="Team">
       <p className="max-w-[65ch] text-[13px] text-muted">
@@ -196,9 +197,42 @@ function TeamSection() {
                     <td className="whitespace-nowrap text-[13px] text-muted">{m.joinedAt.slice(0, 10)}</td>
                     <td className="r">
                       {owner && !self && (
-                        <Button busy={act.busy} onClick={() => void change(() => api(`/org/members/${m.id}`, { method: "DELETE" }))}>
-                          Remove
-                        </Button>
+                        confirmRemoveId === m.id ? (
+                          <div className="flex min-w-0 flex-col items-start gap-3 py-2">
+                            <div className="max-w-xs text-left text-[13px] leading-relaxed">
+                              <p className="font-medium">Remove {m.name}?</p>
+                              <p className="mt-1 text-muted">
+                                Their account will be deleted if they belong to no other workspace.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                busy={act.busy}
+                                onClick={() => {
+                                  void change(async () => {
+                                    await api(`/org/members/${m.id}`, { method: "DELETE" });
+                                    setConfirmRemoveId(null);
+                                  });
+                                }}
+                              >
+                                Confirm
+                              </Button>
+                              <Button
+                                disabled={act.busy}
+                                onClick={() => setConfirmRemoveId(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            busy={act.busy}
+                            onClick={() => setConfirmRemoveId(m.id)}
+                          >
+                            Remove
+                          </Button>
+                        )
                       )}
                       {self && me.orgs.length > 1 && (
                         <Button

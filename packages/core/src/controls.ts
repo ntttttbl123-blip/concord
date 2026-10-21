@@ -98,15 +98,31 @@ export interface ControlsOptions {
   /** How long after approval an instruction may be executed. Default 72h. */
   windowMs?: number;
   /** ISO-8601 time the chain is indexed up to. Instructions past their window before it are breaks. */
-  asOf?: string;
+  asOf: string;
+  /** Accounts known to be frozen at baseline / start. */
+  initialFrozen?: Iterable<string> | Map<string, { authorized?: boolean }>;
 }
 
 /**
  * Classify control events. The first set_authorized(true) for a holder is an authorisation;
- * one that follows a freeze is an unfreeze.
+ * one that follows a freeze is an unfreeze. Accounts present in `initialFrozen` start in the
+ * frozen state.
  */
-export function controlEvents(events: AssetEvent[]): ControlRecord[] {
-  const frozen = new Set<string>();
+export function controlEvents(
+  events: AssetEvent[],
+  initialFrozen?: Iterable<string> | Map<string, { authorized?: boolean }>,
+): ControlRecord[] {
+  let frozen: Set<string>;
+  if (!initialFrozen) {
+    frozen = new Set<string>();
+  } else if (initialFrozen instanceof Map) {
+    frozen = new Set<string>();
+    for (const [address, o] of initialFrozen) {
+      if (o.authorized === false) frozen.add(address);
+    }
+  } else {
+    frozen = new Set<string>(initialFrozen);
+  }
   const out: ControlRecord[] = [];
   for (const ev of sortEvents(events)) {
     if (!ev.from) continue;
@@ -139,10 +155,10 @@ function compatible(record: ControlRecord, instruction: Instruction): boolean {
 export function buildControlsLog(
   events: AssetEvent[],
   instructions: Instruction[],
-  options: ControlsOptions = {},
+  options: ControlsOptions,
 ): ControlsLog {
   const windowMs = options.windowMs ?? 72 * 3_600_000;
-  const records = controlEvents(events);
+  const records = controlEvents(events, options.initialFrozen);
   const ordered = [...instructions].sort((a, b) => Date.parse(a.issuedAt) - Date.parse(b.issuedAt));
   const used = new Set<string>();
   const breaks: ControlBreak[] = [];
@@ -170,7 +186,7 @@ export function buildControlsLog(
     }
   }
 
-  const asOf = options.asOf ? Date.parse(options.asOf) : Date.now();
+  const asOf = Date.parse(options.asOf);
   const pending: Instruction[] = [];
   for (const instruction of ordered) {
     if (used.has(instruction.ref)) continue;

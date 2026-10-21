@@ -1,0 +1,395 @@
+{
+  "recordedFrom": "public Stellar RPC getEvents; decoder fields only",
+  "fixtures": [
+    {
+      "label": "mainnet transfer",
+      "network": "mainnet",
+      "raw": {
+        "id": "0279122597352861696-0000000000",
+        "ledger": 64988294,
+        "ledgerClosedAt": "2026-10-17T08:54:12Z",
+        "contractId": "CAKQOAJY46GIXT36XJXATTBTRERL66LGLPZUWSXODE6D2LPEZYH6TY2C",
+        "txHash": "54494fb4cca39a624283fca5cc377d7dad641760e33837ae7967d2e415dc608c",
+        "topic": [
+          "AAAADwAAAAh0cmFuc2Zlcg==",
+          "AAAAEgAAAAAAAAAANqc8f5TJ2SZklLVirLlLZT80SXAD80MGXWfh2a6cLTc=",
+          "AAAAEgAAAAAAAAAAggfl81ZITN2GISwW1/jcIQy1lT/57IhI4bsVFYo+IeQ=",
+          "AAAADgAAADxYUGk6R0RPRkpFWjNGVVdBQzJFVkhQUk1KUFNXUE9EM0tKRjdGVFhGWklFUkZGUEIyVk1UUlFMWkZVRUY="
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAAKYIs4k="
+      },
+      "expected": {
+        "id": "0279122597352861696-0000000000",
+        "assetId": "CAKQOAJY46GIXT36XJXATTBTRERL66LGLPZUWSXODE6D2LPEZYH6TY2C",
+        "kind": "transfer",
+        "ledger": 64988294,
+        "closedAt": "2026-10-17T08:54:12.000Z",
+        "txHash": "54494fb4cca39a624283fca5cc377d7dad641760e33837ae7967d2e415dc608c",
+        "amount": "2785588105",
+        "from": "GA3KOPD7STE5SJTESS2WFLFZJNST6NCJOAB7GQYGLVT6DWNOTQWTOBET",
+        "to": "GCBAPZPTKZEEZXMGEEWBNV7Y3QQQZNMVH746ZCCI4G5RKFMKHYQ6JPUW"
+      }
+    },
+    {
+      "label": "mainnet mint",
+      "network": "mainnet",
+      "raw": {
+        "id": "0279122597353095168-0000000000",
+        "ledger": 64988294,
+        "ledgerClosedAt": "2026-10-17T08:54:12Z",
+        "contractId": "CBG4QGCVAAMHJYQJ4RSOOANUWVL72DA4XEXTUQSNKSXRJVKMHIVEAPEP",
+        "txHash": "fe828e94ad7f4b2ca0259692ac44bdea1c86b7f879286ad406ac5c6897ea06f0",
+        "topic": [
+          "AAAADwAAAARtaW50",
+          "AAAAEgAAAAAAAAAApK86ywo3ipm5pV7q1yaFiDe1piovhDF4S1mYv4Zz9gg=",
+          "AAAADgAAAEFTVEFSRFVTVDpHQ1BMTkFOTFhUVjJHNk5QSVJEUE9MTTVOQU81WEgySVBZUUJaQ1RUQUtQTlY0SVJUVTVYNUI0UwAAAA=="
+        ],
+        "value": "AAAAEQAAAAEAAAACAAAADwAAAAZhbW91bnQAAAAAAAoAAAAAAAAAAAAAACtF3zHdAAAADwAAAAt0b19tdXhlZF9pZAAAAAAOAAAAG3N0YWtpbmcgcmV3YXJkOiA1MmVj4oCmYTVmYwA="
+      },
+      "expected": {
+        "id": "0279122597353095168-0000000000",
+        "assetId": "CBG4QGCVAAMHJYQJ4RSOOANUWVL72DA4XEXTUQSNKSXRJVKMHIVEAPEP",
+        "kind": "mint",
+        "ledger": 64988294,
+        "closedAt": "2026-10-17T08:54:12.000Z",
+        "txHash": "fe828e94ad7f4b2ca0259692ac44bdea1c86b7f879286ad406ac5c6897ea06f0",
+        "amount": "185855848925",
+        "to": "GCSK6OWLBI3YVGNZUVPOVVZGQWEDPNNGFIXYIMLYJNMZRP4GOP3ARUBO"
+      }
+    },
+    {
+      "label": "mainnet burn",
+      "network": "mainnet",
+      "raw": {
+        "id": "0279122597353275394-0000000000",
+        "ledger": 64988294,
+        "ledgerClosedAt": "2026-10-17T08:54:12Z",
+        "contractId": "CAPMK3PKNCBDXBQBCSRCMAN5JCEFVMUPJTTVI7ZTBAG7QFVTLJKAE2EE",
+        "txHash": "7ed4e93aed6801a2d621617368bd4dc8593c6953fdf1babfa904d16e816ede38",
+        "topic": [
+          "AAAADwAAAARidXJu",
+          "AAAAEgAAAAAAAAAASwcLQPIbD95iU4uAGdHnw+ZSpSx9NmdF9xugGHOPHc8=",
+          "AAAADgAAAD1jVUdYOkdDUlZSNkQ0VEw0U0RJNUpCT1dCVFFTU1kzR1pLQk1TTzVKMkRRTUNFUElDVEo0R1o3N1ROM1M0AAAA"
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAAEbt9YA="
+      },
+      "expected": {
+        "id": "0279122597353275394-0000000000",
+        "assetId": "CAPMK3PKNCBDXBQBCSRCMAN5JCEFVMUPJTTVI7ZTBAG7QFVTLJKAE2EE",
+        "kind": "burn",
+        "ledger": 64988294,
+        "closedAt": "2026-10-17T08:54:12.000Z",
+        "txHash": "7ed4e93aed6801a2d621617368bd4dc8593c6953fdf1babfa904d16e816ede38",
+        "amount": "1190000000",
+        "from": "GBFQOC2A6INQ7XTCKOFYAGOR47B6MUVFFR6TMZ2F64N2AGDTR4O47SS5"
+      }
+    },
+    {
+      "label": "mainnet clawback",
+      "network": "mainnet",
+      "raw": {
+        "id": "0279124452778844161-0000000000",
+        "ledger": 64988726,
+        "ledgerClosedAt": "2026-10-17T09:30:12Z",
+        "contractId": "CARCKZ66U4AI2545NS4RAF47QVEXG3PRRCDA52H4Q3FDRAGSMP4BRU3W",
+        "txHash": "231d766991728c628471873caa6e187d28abe19b7b86337358e3ea11ee61a968",
+        "topic": [
+          "AAAADwAAAAhjbGF3YmFjaw==",
+          "AAAAEgAAAAAAAAAAl71BhWMp3j0CpbO+MfbSBMbTpO61oyPjSuRYE9BJWxw=",
+          "AAAADgAAADxJQ0U6R0FYU0daMkpNM0xOV09PNFdSR0FESVNOTVdPNEhRTEc0UUJHVVpSS0g1WkhMM0VRQkdYNzNJQ0U="
+        ],
+        "value": "AAAACgAAAAAAAAAAAAABU7524AU="
+      },
+      "expected": {
+        "id": "0279124452778844161-0000000000",
+        "assetId": "CARCKZ66U4AI2545NS4RAF47QVEXG3PRRCDA52H4Q3FDRAGSMP4BRU3W",
+        "kind": "clawback",
+        "ledger": 64988726,
+        "closedAt": "2026-10-17T09:30:12.000Z",
+        "txHash": "231d766991728c628471873caa6e187d28abe19b7b86337358e3ea11ee61a968",
+        "amount": "1459189374981",
+        "from": "GCL32QMFMMU54PICUWZ34MPW2ICMNU5E5222GI7DJLSFQE6QJFNRZ6HU"
+      }
+    },
+    {
+      "label": "mainnet set_authorized",
+      "network": "mainnet",
+      "raw": {
+        "id": "0279122648892768256-0000000000",
+        "ledger": 64988306,
+        "ledgerClosedAt": "2026-10-17T08:55:12Z",
+        "contractId": "CDSOP5Y4ZOWA7UNV76KB7QM6IZHX6UAMGYQ5THT35AEWRXF5QTKERG4R",
+        "txHash": "4acbd86e8897f9029852680174527741806b5dc1f4b2c37984fb62cc212dc432",
+        "topic": [
+          "AAAADwAAAA5zZXRfYXV0aG9yaXplZAAA",
+          "AAAAEgAAAAAAAAAAqz/0uSyaeq7I4j+Eo+8uSpQMEzaMaGtNeLEZ7zxvJF4=",
+          "AAAADgAAAEJ1cHZvdGVJQ0U6R0FYU0daMkpNM0xOV09PNFdSR0FESVNOTVdPNEhRTEc0UUJHVVpSS0g1WkhMM0VRQkdYNzNJQ0UAAA=="
+        ],
+        "value": "AAAAAAAAAAE="
+      },
+      "expected": {
+        "id": "0279122648892768256-0000000000",
+        "assetId": "CDSOP5Y4ZOWA7UNV76KB7QM6IZHX6UAMGYQ5THT35AEWRXF5QTKERG4R",
+        "kind": "set_authorized",
+        "ledger": 64988306,
+        "closedAt": "2026-10-17T08:55:12.000Z",
+        "txHash": "4acbd86e8897f9029852680174527741806b5dc1f4b2c37984fb62cc212dc432",
+        "amount": "0",
+        "from": "GCVT75FZFSNHVLWI4I7YJI7PFZFJIDATG2GGQ22NPCYRT3Z4N4SF4YPZ",
+        "authorized": true
+      }
+    },
+    {
+      "label": "mainnet SEP-41 transfer",
+      "network": "mainnet",
+      "raw": {
+        "id": "0279122601648140288-0000000001",
+        "ledger": 64988295,
+        "ledgerClosedAt": "2026-10-17T08:54:17Z",
+        "contractId": "CBIJBDNZNF4X35BJ4FFZWCDBSCKOP5NB4PLG4SNENRMLAPYG4P5FM6VN",
+        "txHash": "cf41316b02a93b055cbdd54fd981f83bb40b330a4d42fad166db47070859698a",
+        "topic": [
+          "AAAADwAAAAh0cmFuc2Zlcg==",
+          "AAAAEgAAAAH07QfPsq46luw9zwYXXRcnZ0oAI0HxtLHptfL0R0/Alw==",
+          "AAAAEgAAAAAAAAAAc4AIReULQW5JQT4ScJ9zBDbKgjtgh9G0uNw9oI77RqU="
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAAAARqsc="
+      },
+      "expected": {
+        "id": "0279122601648140288-0000000001",
+        "assetId": "CBIJBDNZNF4X35BJ4FFZWCDBSCKOP5NB4PLG4SNENRMLAPYG4P5FM6VN",
+        "kind": "transfer",
+        "ledger": 64988295,
+        "closedAt": "2026-10-17T08:54:17.000Z",
+        "txHash": "cf41316b02a93b055cbdd54fd981f83bb40b330a4d42fad166db47070859698a",
+        "amount": "1157831",
+        "from": "CD2O2B6PWKXDVFXMHXHQMF25C4TWOSQAENA7DNFR5G27F5CHJ7AJP5F6",
+        "to": "GBZYACCF4UFUC3SJIE7BE4E7OMCDNSUCHNQIPUNUXDOD3IEO7NDKKKOU"
+      }
+    },
+    {
+      "label": "mainnet muxed SAC transfer",
+      "network": "mainnet",
+      "raw": {
+        "id": "0278929323824590848-0000000000",
+        "ledger": 64943294,
+        "ledgerClosedAt": "2026-10-14T18:24:12Z",
+        "contractId": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "txHash": "081f4c796898b6a06c09f4b2ba5e8a580c82887061abce4263699256bfec3b21",
+        "topic": [
+          "AAAADwAAAAh0cmFuc2Zlcg==",
+          "AAAAEgAAAAAAAAAAYZQ4A5oPimsFE/Nu/88NlmLu2Eb/MRQfknt2WBhPmlU=",
+          "AAAAEgAAAAAAAAAA+pEKjP4uSbpq9ImKbVeF+ume1St5IqjQ7XSlSxYOaQs=",
+          "AAAADgAAAD1VU0RDOkdBNVpTRUpZQjM3SlJDNUFWQ0lBNU1PUDRSSFRNMzM1WDJLR1gzSUhPSkFQUDVSRTM0SzRLWlZOAAAA"
+        ],
+        "value": "AAAAEQAAAAEAAAACAAAADwAAAAZhbW91bnQAAAAAAAoAAAAAAAAAAAAAAAAO5rKAAAAADwAAAAt0b19tdXhlZF9pZAAAAAAOAAAACjE3MDk4MzQ2MzEAAA=="
+      },
+      "expected": {
+        "id": "0278929323824590848-0000000000",
+        "assetId": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "kind": "transfer",
+        "ledger": 64943294,
+        "closedAt": "2026-10-14T18:24:12.000Z",
+        "txHash": "081f4c796898b6a06c09f4b2ba5e8a580c82887061abce4263699256bfec3b21",
+        "amount": "250000000",
+        "from": "GBQZIOADTIHYU2YFCPZW576PBWLGF3WYI37TCFA7SJ5XMWAYJ6NFKCVA",
+        "to": "GD5JCCUM7YXETOTK6SEYU3KXQX5OTHWVFN4SFKGQ5V2KKSYWBZUQWMWT"
+      }
+    },
+    {
+      "label": "testnet transfer",
+      "network": "testnet",
+      "raw": {
+        "id": "0022508785432027136-0000000002",
+        "ledger": 5240735,
+        "ledgerClosedAt": "2026-10-17T08:54:22Z",
+        "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "txHash": "25b50c12fb224170270e063b7f53a921c94e59a775843803c25ae31ae5672508",
+        "topic": [
+          "AAAADwAAAAh0cmFuc2Zlcg==",
+          "AAAAEgAAAAAAAAAAZwB4vIWYLiFfXxrun79O9+az9A8MbJMzNIyrPvoeKvA=",
+          "AAAAEgAAAAEw8EBqbZh4gmqnRw3r9RnrGSKq/Q1bT0DsqZFQs10Pcw==",
+          "AAAADgAAAD1VU0RDOkdCQkQ0N0lGNkxXSzdQN01ERVZTQ1dSN0RQVVdWM05ZM0RUUUVWRkw0TkFUNEFRSDNaTExGTEE1AAAA"
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAAARExgA="
+      },
+      "expected": {
+        "id": "0022508785432027136-0000000002",
+        "assetId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "kind": "transfer",
+        "ledger": 5240735,
+        "closedAt": "2026-10-17T08:54:22.000Z",
+        "txHash": "25b50c12fb224170270e063b7f53a921c94e59a775843803c25ae31ae5672508",
+        "amount": "71616000",
+        "from": "GBTQA6F4QWMC4IK7L4NO5H57J336NM7UB4GGZEZTGSGKWPX2DYVPBRY6",
+        "to": "CAYPAQDKNWMHRATKU5DQ327VDHVRSIVK7UGVWT2A5SUZCUFTLUHXH2JA"
+      }
+    },
+    {
+      "label": "testnet mint",
+      "network": "testnet",
+      "raw": {
+        "id": "0022508789726973952-0000000000",
+        "ledger": 5240736,
+        "ledgerClosedAt": "2026-10-17T08:54:27Z",
+        "contractId": "CBM44TNMCPYIFJO4PSMDZA7IXKJRRNHA6EOWNWI3X4V47DDC7WQXXD3E",
+        "txHash": "371efc86f4e2a01e10e0eab8ad9fc1c6d4de39fe62c905e44c17035fc97f37ca",
+        "topic": [
+          "AAAADwAAAARtaW50",
+          "AAAAEgAAAAHd2aoUIZDZQZfjSe0A0dFkBppurXuf/BA8Aln2pq8HSQ==",
+          "AAAADgAAAD1VU0RDOkdBR1ZaTU9EUFlGVFVMSVZTWTNSR0ZBRElDNUxGNExMU04zN040TUZXR05aNTdUWUJYTDJMUVFYAAAA"
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAA2tXvw2A="
+      },
+      "expected": {
+        "id": "0022508789726973952-0000000000",
+        "assetId": "CBM44TNMCPYIFJO4PSMDZA7IXKJRRNHA6EOWNWI3X4V47DDC7WQXXD3E",
+        "kind": "mint",
+        "ledger": 5240736,
+        "closedAt": "2026-10-17T08:54:27.000Z",
+        "txHash": "371efc86f4e2a01e10e0eab8ad9fc1c6d4de39fe62c905e44c17035fc97f37ca",
+        "amount": "939892130656",
+        "to": "CDO5TKQUEGINSQMX4NE62AGR2FSANGTOVV5Z77AQHQBFT5VGV4DUTAX3"
+      }
+    },
+    {
+      "label": "testnet burn",
+      "network": "testnet",
+      "raw": {
+        "id": "0022508789726973952-0000000001",
+        "ledger": 5240736,
+        "ledgerClosedAt": "2026-10-17T08:54:27Z",
+        "contractId": "CBVJ6GYJJ55ALTHN32OJEFGUZWWTMDFGIBCM42SPYQ4GWLKX2XARAP2N",
+        "txHash": "371efc86f4e2a01e10e0eab8ad9fc1c6d4de39fe62c905e44c17035fc97f37ca",
+        "topic": [
+          "AAAADwAAAARidXJu",
+          "AAAAEgAAAAHd2aoUIZDZQZfjSe0A0dFkBppurXuf/BA8Aln2pq8HSQ==",
+          "AAAADgAAADxTT0w6R0FHVlpNT0RQWUZUVUxJVlNZM1JHRkFESUM1TEY0TExTTjM3TjRNRldHTlo1N1RZQlhMMkxRUVg="
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAEs+mCYg="
+      },
+      "expected": {
+        "id": "0022508789726973952-0000000001",
+        "assetId": "CBVJ6GYJJ55ALTHN32OJEFGUZWWTMDFGIBCM42SPYQ4GWLKX2XARAP2N",
+        "kind": "burn",
+        "ledger": 5240736,
+        "closedAt": "2026-10-17T08:54:27.000Z",
+        "txHash": "371efc86f4e2a01e10e0eab8ad9fc1c6d4de39fe62c905e44c17035fc97f37ca",
+        "amount": "80793176456",
+        "from": "CDO5TKQUEGINSQMX4NE62AGR2FSANGTOVV5Z77AQHQBFT5VGV4DUTAX3"
+      }
+    },
+    {
+      "label": "testnet clawback",
+      "network": "testnet",
+      "raw": {
+        "id": "0022514549278134272-0000000000",
+        "ledger": 5242077,
+        "ledgerClosedAt": "2026-10-17T10:46:12Z",
+        "contractId": "CAD5G6FR2UR74UQV6RBNCDAU2HMJQMF3GLAZ4XAWBNZCK22DWSDAFLMU",
+        "txHash": "294a8200f1f10d79765a392e39dec530ee036679ae7b883c239d5d487325b575",
+        "topic": [
+          "AAAADwAAAAhjbGF3YmFjaw==",
+          "AAAAEgAAAAAAAAAAsrqT0l42qpXka+p5UyQsrgFtL4PVEidiymbfdNFJDYE=",
+          "AAAADgAAADxJQ0U6R0FZWUg0NFNTNE9TRkRZNFdYTVdNMkJLUkEyUkc1TTZOWlVMVVFXR0hLR0ZBU0ZZMlpWSTdJSFg="
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAAAAkptU="
+      },
+      "expected": {
+        "id": "0022514549278134272-0000000000",
+        "assetId": "CAD5G6FR2UR74UQV6RBNCDAU2HMJQMF3GLAZ4XAWBNZCK22DWSDAFLMU",
+        "kind": "clawback",
+        "ledger": 5242077,
+        "closedAt": "2026-10-17T10:46:12.000Z",
+        "txHash": "294a8200f1f10d79765a392e39dec530ee036679ae7b883c239d5d487325b575",
+        "amount": "2402005",
+        "from": "GCZLVE6SLY3KVFPENPVHSUZEFSXAC3JPQPKREJ3CZJTN65GRJEGYCLSO"
+      }
+    },
+    {
+      "label": "testnet set_authorized",
+      "network": "testnet",
+      "raw": {
+        "id": "0022509433972092928-0000000000",
+        "ledger": 5240886,
+        "ledgerClosedAt": "2026-10-17T09:06:57Z",
+        "contractId": "CD2267BVEXPRTEZUJE44KJ22VIUA7XNX3ASF5ORUHUOOIOD6L45XOYVL",
+        "txHash": "df467574899f83f9e5ce48259e8113bea09d04a9cc6791ee572645af140015c7",
+        "topic": [
+          "AAAADwAAAA5zZXRfYXV0aG9yaXplZAAA",
+          "AAAAEgAAAAHjKosD8akwQTR5G+Mm23nZY14HT8riwWkVLvgMNIuw5Q==",
+          "AAAADgAAAD1UVVNEOkdENlFFR1FLWTdaWkk3MkNaVzNMVE1FWlo1UElWSE5CREVBVUVaM1lVRVRQQ1dES09YT1c2VVlKAAAA"
+        ],
+        "value": "AAAAAAAAAAE="
+      },
+      "expected": {
+        "id": "0022509433972092928-0000000000",
+        "assetId": "CD2267BVEXPRTEZUJE44KJ22VIUA7XNX3ASF5ORUHUOOIOD6L45XOYVL",
+        "kind": "set_authorized",
+        "ledger": 5240886,
+        "closedAt": "2026-10-17T09:06:57.000Z",
+        "txHash": "df467574899f83f9e5ce48259e8113bea09d04a9cc6791ee572645af140015c7",
+        "amount": "0",
+        "from": "CDRSVCYD6GUTAQJUPEN6GJW3PHMWGXQHJ7FOFQLJCUXPQDBUROYOL3VT",
+        "authorized": true
+      }
+    },
+    {
+      "label": "testnet SEP-41 transfer",
+      "network": "testnet",
+      "raw": {
+        "id": "0022508836971614208-0000000002",
+        "ledger": 5240747,
+        "ledgerClosedAt": "2026-10-17T08:55:22Z",
+        "contractId": "CDPXNHHVSLX3HFAHV7XOISM23MZH36WSXTO45RNDOBIDFZBGTSOVD4OY",
+        "txHash": "5112d89b2b0a44f8e66903b374d5971ce45e6cba1d4097120e9c15723ff859c4",
+        "topic": [
+          "AAAADwAAAAh0cmFuc2Zlcg==",
+          "AAAAEgAAAAGY2RG3GFqZY/oI0PP0QrrWcKs8XecVDWrLeURpqSwXaQ==",
+          "AAAAEgAAAAEUo9DHf79AcLzUHYeppoyCkjie0ww7g1SkZkwV0DSYiA=="
+        ],
+        "value": "AAAACgAAAAAAAAAAAAAAAEm6saY="
+      },
+      "expected": {
+        "id": "0022508836971614208-0000000002",
+        "assetId": "CDPXNHHVSLX3HFAHV7XOISM23MZH36WSXTO45RNDOBIDFZBGTSOVD4OY",
+        "kind": "transfer",
+        "ledger": 5240747,
+        "closedAt": "2026-10-17T08:55:22.000Z",
+        "txHash": "5112d89b2b0a44f8e66903b374d5971ce45e6cba1d4097120e9c15723ff859c4",
+        "amount": "1236971942",
+        "from": "CCMNSENXDBNJSY72BDIPH5CCXLLHBKZ4LXTRKDLKZN4UI2NJFQLWTLD6",
+        "to": "CAKKHUGHP67UA4F42QOYPKNGRSBJEOE62MGDXA2UURTEYFOQGSMIRUFO"
+      }
+    },
+    {
+      "label": "testnet muxed SAC transfer",
+      "network": "testnet",
+      "raw": {
+        "id": "0022315687997345794-0000000002",
+        "ledger": 5195776,
+        "ledgerClosedAt": "2026-10-14T18:27:47Z",
+        "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "txHash": "18d329dd40f946ad63dd361663410f72aff17912c4d40df6e6a53e7e87967f97",
+        "topic": [
+          "AAAADwAAAAh0cmFuc2Zlcg==",
+          "AAAAEgAAAAAAAAAA6ZLa8iLncHnEYBLvgEBDQnsHDPJha9gOU1FIdLgE7Ks=",
+          "AAAAEgAAAAAAAAAAhqe/deVRhseymJC5a6j3VBZzk5pAiHDoDArdLInR1dU=",
+          "AAAADgAAAD1VU0RDOkdCQkQ0N0lGNkxXSzdQN01ERVZTQ1dSN0RQVVdWM05ZM0RUUUVWRkw0TkFUNEFRSDNaTExGTEE1AAAA"
+        ],
+        "value": "AAAAEQAAAAEAAAACAAAADwAAAAZhbW91bnQAAAAAAAoAAAAAAAAAAAAAAABqtWuIAAAADwAAAAt0b19tdXhlZF9pZAAAAAAOAAAAGHRyeWluZyBvdXQgU3RlbGxhcmNhcmJvbg=="
+      },
+      "expected": {
+        "id": "0022315687997345794-0000000002",
+        "assetId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        "kind": "transfer",
+        "ledger": 5195776,
+        "closedAt": "2026-10-14T18:27:47.000Z",
+        "txHash": "18d329dd40f946ad63dd361663410f72aff17912c4d40df6e6a53e7e87967f97",
+        "amount": "1790274440",
+        "from": "GDUZFWXSELTXA6OEMAJO7ACAINBHWBYM6JQWXWAOKNIUQ5FYATWKXV3D",
+        "to": "GCDKPP3V4VIYNR5STCILS25I65KBM44TTJAIQ4HIBQFN2LEJ2HK5KLZX"
+      }
+    }
+  ]
+}

@@ -3,3 +3,6 @@ contact_links:
   - name: Report a security vulnerability
     url: https://github.com/useconcord/concord/security/advisories/new
     about: Report privately. Do not open a public issue for security problems.
+  - name: Questions and support
+    url: https://github.com/useconcord/concord/blob/main/SUPPORT.md
+    about: What is supported, where to ask, what to include and what to expect back.

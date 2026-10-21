@@ -92,6 +92,14 @@ Once the chain has passed that time, `reconcileAction` takes holdings at the rec
 computes expected entitlements, observes the actual flows in the execution window, and diffs
 them. An action recorded ahead of its record time is picked up by `reconcileDue`.
 
+## Audit pack contract
+
+The JSON returned by `GET /api/assets/:id/export` is the artifact auditors keep. Its shape is
+published as a versioned JSON Schema: [`audit-pack.schema.json`](./audit-pack.schema.json) (v1).
+`services/api/test/service.test.ts` generates a pack from the service fixture, validates it with
+Ajv, and snapshots its key paths, so adding or removing a field requires a schema change and a new
+schema version.
+
 ## Testing
 
 `vitest` in `packages/core` and `services/api`. API tests build a real `Concord` with an in-memory
@@ -101,5 +109,5 @@ real password hashing at a low cost. The dashboard has no automated tests yet.
 ## Deliberate limits
 
 Documented in the README under **Limits**: RPC history of about seven days, supply understated by
-pool/claimable/contract balances for classic assets, one process and one disk, no email. Changes
+pool/claimable/contract balances for classic assets, one process and one disk, no email ([`docs/adr/0003-no-email.md`](./adr/0003-no-email.md)). Changes
 that remove a limit should update that section.

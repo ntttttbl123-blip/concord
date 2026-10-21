@@ -1,0 +1,16 @@
+# Concord behind Caddy: one reverse proxy facing the internet.
+#
+# Set CONCORD_TRUST_PROXY=1
+#
+# Caddy replaces any X-Forwarded-For sent by the client with the real
+# address it saw, so clients cannot spoof it. Concord trusts the last
+# entry, which is the one Caddy wrote.
+# Host and Origin are passed through unchanged by default.
+# If another proxy or CDN sits in front of Caddy, the hop count changes.
+#
+# Replace concord.example.com with your domain. Caddy gets the HTTPS
+# certificate automatically. For local testing, use "localhost" instead.
+
+concord.example.com {
+	reverse_proxy 127.0.0.1:4400
+}

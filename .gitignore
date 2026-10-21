@@ -3,6 +3,9 @@ node_modules/
 !.env.example
 target/
 dist/
+coverage/
 .DS_Store
 data/
 *.tsbuildinfo
+test-results/
+playwright-report/

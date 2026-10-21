@@ -1,0 +1,74 @@
+name: Integration
+
+# Against a real Stellar network rather than FakeChain, to catch protocol drift (event topics,
+# Horizon response shapes) before mainnet does. Nightly and on demand only: it is not a pull
+# request check.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Quickstart image to test against
+        default: stellar/quickstart:latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration
+  cancel-in-progress: false
+
+jobs:
+  quickstart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: ${{ inputs.image || 'stellar/quickstart:latest' }}
+      QUICKSTART_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      # Version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # A fresh local network with RPC, Horizon and friendbot. Started first: it takes a while.
+      - name: Start Stellar quickstart
+        run: docker run -d --name stellar -p 8000:8000 "$IMAGE" --local --enable core,horizon,rpc
+
+      - run: pnpm install --frozen-lockfile
+      # services/api imports packages/core from its build output.
+      - run: pnpm build
+
+      - name: Wait for RPC, Horizon and friendbot
+        run: |
+          status() { curl -s -o /dev/null -w '%{http_code}' "$1" || true; }
+          for i in $(seq 1 90); do
+            rpc=$(curl -s -X POST "$QUICKSTART_URL/rpc" -H 'content-type: application/json' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' || true)
+            # Friendbot answers 400 to a request with no address once it is up.
+            if echo "$rpc" | grep -q '"healthy"' \
+               && [ "$(status "$QUICKSTART_URL/")" = 200 ] \
+               && [ "$(status "$QUICKSTART_URL/friendbot")" = 400 ]; then
+              echo "ready after ~$((i * 5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "quickstart did not become ready" >&2
+          exit 1
+
+      - run: pnpm --filter @concord/api test:integration
+
+      - name: Collect container logs
+        if: failure()
+        run: docker logs stellar > quickstart.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: quickstart-logs
+          path: quickstart.log
+          retention-days: 14

@@ -1,0 +1,19 @@
+- name: "area:core"
+  color: "1d76db"
+  description: "packages/core - core reconciliation and accounting logic"
+
+- name: "area:api"
+  color: "1d76db"
+  description: "services/api - HTTP routes, CLI, and ledger ingestion"
+
+- name: "area:web"
+  color: "1d76db"
+  description: "apps/web - web dashboard and frontend"
+
+- name: "area:docs"
+  color: "1d76db"
+  description: "Documentation files and guides"
+
+- name: "area:ci"
+  color: "1d76db"
+  description: "CI, Docker, and developer tooling"

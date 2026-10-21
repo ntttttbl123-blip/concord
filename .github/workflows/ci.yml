@@ -14,17 +14,150 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    name: check (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: "24.11"
+          - os: ubuntu-latest
+            node: "24.x"
+          - os: macos-latest
+            node: "24.x"
     steps:
       - uses: actions/checkout@v4
       # Version comes from "packageManager" in package.json.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The API and the dashboard import packages/core from its build output, so build first.
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
+      # Second pass with randomised test order to expose inter-test coupling.
+      # Replay a failing seed with: pnpm test --sequence.shuffle --sequence.seed=<seed>
+      - name: Test (shuffled order)
+        run: pnpm test --sequence.shuffle --sequence.seed=${{ github.run_id }}
+
+      - name: Core coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: pnpm --filter @concord/core test:coverage
+      - name: API coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: pnpm --filter @concord/api test:coverage
+      - name: Upload lcov reports
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: |
+            packages/core/coverage/lcov.info
+            services/api/coverage/lcov.info
+          if-no-files-found: error
+
+      - name: Install Chromium for accessibility checks
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: pnpm --filter @concord/web exec playwright install --with-deps chromium
+      - name: Run dashboard accessibility checks
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: |
+          pnpm --filter @concord/web exec vite --host 127.0.0.1 --port 4173 > /tmp/concord-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail http://127.0.0.1:4173/ > /dev/null
+          pnpm --filter @concord/web test:a11y
+      - name: Browser smoke test
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: pnpm e2e
+      - name: Upload Playwright traces
+        if: failure() && matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+
+# Advisory: reports numbers, never fails the build.
+  bench:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run benchmarks
+        run: pnpm --filter ./packages/core bench --reporter=verbose | tee bench.txt
+      - name: Publish results to job summary
+        if: always()
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat bench.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t concord:ci .
+
+      - name: Start container
+        run: |
+          docker volume create concord-data
+          docker run -d --name concord -p 4400:4400 \
+            -v concord-data:/data \
+            --health-interval=5s --health-start-period=5s \
+            concord:ci
+
+      - name: Wait for healthy (60s max)
+        run: |
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' concord)" = "healthy" ] && exit 0
+            sleep 2
+          done
+          echo "Image did not become healthy within 60s"
+          exit 1
+
+      - name: Probe / and /api/health
+        run: |
+          curl -fsS http://localhost:4400/api/health
+          curl -fsS http://localhost:4400/ | grep -qi "<html"
+
+      - name: Restart and confirm data persists
+        run: |
+          docker exec concord sh -c 'echo persisted > /data/smoke-marker'
+          docker rm -f concord
+          docker run -d --name concord -p 4400:4400 \
+            -v concord-data:/data \
+            --health-interval=5s --health-start-period=5s \
+            concord:ci
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' concord)" = "healthy" ] && break
+            sleep 2
+          done
+          test "$(docker exec concord cat /data/smoke-marker)" = "persisted"
+          curl -fsS http://localhost:4400/api/health
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs concord
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f concord || true

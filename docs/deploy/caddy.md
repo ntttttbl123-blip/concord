@@ -6,7 +6,7 @@ This guide provides a production TLS recipe for deploying Concord behind the [Ca
 
 ## 1. Why Caddy
 
-Concord's server ([`services/api/src/main.ts`](file:///C:/Users/lenovo/wave-work/concord/services/api/src/main.ts)) is a single Node.js process listening by default on port `4400`. It does not terminate TLS natively or bind low ports directly.
+Concord's server ([`services/api/src/main.ts`](../../services/api/src/main.ts)) is a single Node.js process listening by default on port `4400`. It does not terminate TLS natively or bind low ports directly.
 
 Caddy provides:
 1. **Automatic HTTPS:** Issues and renews free Let's Encrypt or ZeroSSL TLS certificates with zero manual intervention.
@@ -107,7 +107,7 @@ Set this to the public canonical HTTPS origin:
 ```bash
 export CONCORD_PUBLIC_URL="https://concord.example.com"
 ```
-**Code references:** [`services/api/src/config.ts`](file:///C:/Users/lenovo/wave-work/concord/services/api/src/config.ts) and [`services/api/src/auth-api.ts`](file:///C:/Users/lenovo/wave-work/concord/services/api/src/auth-api.ts).
+**Code references:** [`services/api/src/config.ts`](../../services/api/src/config.ts) and [`services/api/src/auth-api.ts`](../../services/api/src/auth-api.ts).
 - When `CONCORD_PUBLIC_URL` begins with `https://`:
   - `sessions()` sets `secure = true`.
   - The session cookie name changes from `concord_session` to `__Host-concord_session`.
@@ -121,7 +121,7 @@ Set this to the exact number of reverse proxy hops in front of Concord:
 ```bash
 export CONCORD_TRUST_PROXY=1
 ```
-**Code reference:** [`services/api/src/auth-api.ts:28-43`](file:///C:/Users/lenovo/wave-work/concord/services/api/src/auth-api.ts#L28-L43).
+**Code reference:** [`services/api/src/auth-api.ts:28-43`](../../services/api/src/auth-api.ts#L28-L43).
 - `clientIp(c, trustProxyHops)` parses the `X-Forwarded-For` chain:
   ```typescript
   const hops = (c.req.header("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -171,7 +171,7 @@ Key attributes to verify:
 - `SameSite=Strict` prevents CSRF attacks.
 
 ### 3. Verify Rate Limiting Sees the Real Client IP
-Concord enforces IP-based rate limiting on sensitive auth endpoints ([`services/api/src/auth-api.ts`](file:///C:/Users/lenovo/wave-work/concord/services/api/src/auth-api.ts)):
+Concord enforces IP-based rate limiting on sensitive auth endpoints ([`services/api/src/auth-api.ts`](../../services/api/src/auth-api.ts)):
 - `signin:<ip>`: 20 attempts per 10 minutes
 - `signup:<ip>`: 20 attempts per 60 minutes
 - `invite:<ip>`: 20 attempts per 10 minutes

@@ -117,19 +117,22 @@ export function decodeEvent(raw: RawEvent): AssetEvent | undefined {
   const addresses = topics.slice(1).filter((t): t is string => typeof t === "string" && ADDRESS.test(t));
   const last = addresses.at(-1);
   if (!last) return undefined;
+  const time = Date.parse(raw.ledgerClosedAt);
+  if (Number.isNaN(time)) return undefined;
   const event: AssetEvent = {
     id: raw.id,
     assetId: raw.contractId,
     kind,
     ledger: raw.ledger,
-    closedAt: new Date(raw.ledgerClosedAt).toISOString(),
+    closedAt: new Date(time).toISOString(),
     txHash: raw.txHash,
     amount: 0n,
   };
   const value = native(raw.value);
   if (kind === "set_authorized") {
+    if (typeof value !== "boolean") return undefined;
     event.from = last;
-    event.authorized = Boolean(value);
+    event.authorized = value;
     return event;
   }
   // A muxed destination turns the value into a map carrying the amount.
@@ -288,8 +291,14 @@ export class StellarSource implements ChainSource {
       const timedOut = (err as Error).name === "TimeoutError";
       throw new EndpointFailure(timedOut ? "timed out" : "unreachable", { retrySame: true });
     }
+    if (res.status === 401 || res.status === 403) {
+      throw new EndpointFailure("bad API key");
+    }
     if (res.status === 429) {
       throw new EndpointFailure("rate limited", { limited: true, restMs: retryAfterMs(res, this.deps.now()) });
+    }
+    if (res.status === 400 || res.status === 404 || res.status === 422) {
+      throw new ChainError(`HTTP ${res.status}`, "rejected");
     }
     if (res.status >= 500) throw new EndpointFailure(`HTTP ${res.status}`, { retrySame: true });
     if (!res.ok) throw new EndpointFailure(`HTTP ${res.status}`);
@@ -322,10 +331,11 @@ export class StellarSource implements ChainSource {
     });
   }
 
-  private horizon<T>(pathAndQuery: string): Promise<T> {
-    return this.horizonPool.run(async (endpoint) =>
-      this.json<T>(await this.send(endpoint, `${endpoint.url}${pathAndQuery}`)),
-    );
+  private horizon<T>(pathAndQuery: string, validate?: (body: unknown) => T): Promise<T> {
+    return this.horizonPool.run(async (endpoint) => {
+      const body = await this.json<unknown>(await this.send(endpoint, `${endpoint.url}${pathAndQuery}`));
+      return validate ? validate(body) : (body as T);
+    });
   }
 
   async latestLedger(): Promise<ChainHead> {
@@ -411,7 +421,11 @@ export class StellarSource implements ChainSource {
         const res = await this.send(endpoint, `${endpoint.url}${path}`, {}, PAGE_TIMEOUT_MS);
         const pageLedger = Number(res.headers.get("latest-ledger"));
         if (!pageLedger) throw new EndpointFailure("no Latest-Ledger header");
-        return { body: await this.json<AccountsPage>(res), pageLedger };
+        const body = await this.json<AccountsPage>(res);
+        if (!body?._embedded || !Array.isArray(body._embedded.records)) {
+          throw new EndpointFailure("unexpected response");
+        }
+        return { body, pageLedger };
       } catch (err) {
         if (!(err instanceof EndpointFailure) || !err.options.retrySame || attempt >= PAGE_ATTEMPTS) throw err;
         await this.deps.sleep(500 * 2 ** (attempt - 1) + Math.random() * 250);
@@ -421,8 +435,11 @@ export class StellarSource implements ChainSource {
 
   private async horizonAssets(code: string, issuer?: string): Promise<HorizonAsset[]> {
     const query = `asset_code=${encodeURIComponent(code)}${issuer ? `&asset_issuer=${issuer}` : ""}`;
-    const body = await this.horizon<{ _embedded: { records: HorizonAsset[] } }>(`/assets?${query}&limit=200`);
-    return body._embedded.records;
+    return this.horizon(`/assets?${query}&limit=200`, (body) => {
+      const records = (body as { _embedded?: { records?: HorizonAsset[] } })?._embedded?.records;
+      if (!Array.isArray(records)) throw new EndpointFailure("unexpected response");
+      return records;
+    });
   }
 
   async search(code: string): Promise<AssetCandidate[]> {

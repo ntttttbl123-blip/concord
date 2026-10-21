@@ -16,8 +16,9 @@ have to show up on both sides. Today that is manual.
 - CAP-67 (Final, Protocol 23) makes classic Stellar operations emit transfer, mint, burn,
   clawback and `set_authorized` events in the same format as Soroban. That makes indexing
   regulated assets practical.
-- Existing products were **not checked**: StellarExpert, Mercury/Zephyr, SDF Hubble, Vertalo,
-  Securitize TA. Do this first.
+- Existing products were checked (see [`docs/prior-art.md`](./docs/prior-art.md)): StellarExpert,
+  Mercury/Zephyr, SDF Hubble, Vertalo and Securitize TA all provide data, indexing or their own
+  transfer-agent stacks, not register-against-chain reconciliation.
 
 ## Product
 
@@ -38,3 +39,6 @@ Ballast's thesis that RWAs will be used as collateral, so it hedges that bet.
 
 - DTCC, Securitize or an existing Stellar indexer already ships reconciliation for Stellar.
 - DTCC's Stellar launch slips past 2027 with no other issuer needing it.
+
+See [`docs/prior-art.md`](./docs/prior-art.md) for the findings, dated sources, re-check cadence and
+result log.

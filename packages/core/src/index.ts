@@ -7,3 +7,4 @@ export * from "./reconcile.js";
 export * from "./movements.js";
 export * from "./distributions.js";
 export * from "./controls.js";
+export * from "./templates.js";

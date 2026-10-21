@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { INSTRUCTION_COLUMNS, JOURNAL_COLUMNS, REGISTER_COLUMNS } from "@concord/core";
+import { templateCsv } from "@concord/core";
 import { Auth, Conflict, Forbidden, Rejected, Unauthorized, type SessionInfo } from "./auth.js";
 import { authRoutes, clientIp, jsonBody, me, sessions, type ApiOptions } from "./auth-api.js";
 import { ChainError } from "./chain.js";
@@ -16,11 +16,6 @@ export type { ApiOptions } from "./auth-api.js";
 type Env = { Variables: { ws: Concord; session: SessionInfo; actor: Actor } };
 
 const KB = 1024;
-const TEMPLATES: Record<string, readonly string[]> = {
-  register: REGISTER_COLUMNS,
-  journal: JOURNAL_COLUMNS,
-  instructions: INSTRUCTION_COLUMNS,
-};
 
 /** Keeps a download's name to characters every browser and header parser accepts. */
 const fileSafe = (text: string) => text.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "asset";
@@ -243,11 +238,12 @@ export function createApi(tenants: Tenants, auth: Auth, options: ApiOptions): Ho
 
   priv.get("/templates/:kind", (c) => {
     const kind = c.req.param("kind").replace(/\.csv$/, "");
-    const columns = TEMPLATES[kind];
-    if (!columns) throw new NotFound("no such template");
+    const example = c.req.query("example");
+    const csv = templateCsv(kind, { example: example === "1" || example === "true" });
+    if (csv === undefined) throw new NotFound("no such template");
     c.header("content-type", "text/csv; charset=utf-8");
     c.header("content-disposition", `attachment; filename="concord-${kind}-template.csv"`);
-    return c.body(`${columns.join(",")}\n`);
+    return c.body(csv);
   });
 
   priv.get("/assets/:id/registers", (c) => c.json(c.var.ws.registers(id(c))));

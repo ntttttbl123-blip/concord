@@ -1,0 +1,18 @@
+# Global code ownership fallback
+* @royalTreasure
+
+# Core reconciliation and domain logic
+/packages/ @royalTreasure
+
+# API, CLI, and database services
+/services/ @royalTreasure
+
+# Web dashboard
+/apps/ @royalTreasure
+
+# Documentation
+/docs/ @royalTreasure
+/*.md @royalTreasure
+
+# CI and GitHub configuration
+/.github/ @royalTreasure

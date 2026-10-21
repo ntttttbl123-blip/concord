@@ -185,7 +185,14 @@ export function reconcileMovements(
     let best: AssetEvent | undefined;
     let bestDistance = Infinity;
     for (const ev of movements) {
-      if (used.has(ev.id) || ev.amount !== entry.units || !sameParties(entry, ev)) continue;
+      if (
+        used.has(ev.id) ||
+        ev.amount !== entry.units ||
+        !sameParties(entry, ev) ||
+        (entry.txHash && ev.txHash !== entry.txHash)
+      ) {
+        continue;
+      }
       const d = distance(entry, ev);
       if (d <= windowMs && d < bestDistance) {
         best = ev;

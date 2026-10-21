@@ -77,7 +77,7 @@ export interface FlowWindow {
   afterTime?: string;
   /** Inclusive ISO-8601 upper bound. */
   untilTime?: string;
-  /** Kinds that add to a holder. A transfer counts only when sent by `payer`. */
+  /** Kinds that add to a holder. A transfer counts only when sent by `payer` to another address. */
   plus: EventKind[];
   /** Kinds that take from a holder. */
   minus: EventKind[];
@@ -105,7 +105,7 @@ export function observeFlows(events: AssetEvent[], window: FlowWindow): Map<stri
     if (window.afterTime !== undefined && ev.closedAt <= window.afterTime) continue;
     if (window.untilTime !== undefined && ev.closedAt > window.untilTime) continue;
     if (ev.kind === "transfer") {
-      if (window.plus.includes("transfer") && window.payer && ev.from === window.payer) {
+      if (window.plus.includes("transfer") && window.payer && ev.from === window.payer && ev.to !== ev.from) {
         add(ev.to, ev.amount, ev.txHash);
       }
     } else if (window.plus.includes(ev.kind)) {
@@ -199,9 +199,11 @@ export function reconcileDistribution(
       status,
     });
     if (status !== "ok") {
+      const oppositeSign = want !== 0n && got !== 0n && want > 0n !== got > 0n;
+      const severity: Severity = status === "UNEXPECTED" && !oppositeSign ? "medium" : "high";
       breaks.push({
         type: status,
-        severity: status === "UNEXPECTED" ? "medium" : "high",
+        severity,
         key: `${status}:${address}`,
         address,
         expected: want,
@@ -216,7 +218,7 @@ export function reconcileDistribution(
     lines,
     breaks,
     summary: {
-      holders: lines.length,
+      holders: lines.filter((l) => l.expected !== 0n || l.observed !== 0n).length,
       expectedTotal,
       observedTotal,
       difference: observedTotal - expectedTotal,

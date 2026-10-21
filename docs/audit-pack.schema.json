@@ -1,0 +1,476 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://concord.dev/schemas/audit-pack.v1.schema.json",
+  "title": "Concord audit pack v1",
+  "description": "Version 1 of the pack returned by GET /api/assets/{id}/export. Auditors keep this artifact, so the shape is a contract: additions or removals are a new schema version, not an edit to this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generatedAt",
+    "generator",
+    "sha256",
+    "asset",
+    "period",
+    "holdings",
+    "reconciliations",
+    "corporateActions",
+    "controls",
+    "events"
+  ],
+  "properties": {
+    "generatedAt": { "$ref": "#/definitions/dateTime" },
+    "generator": { "type": "string", "pattern": "^concord/[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "sha256": { "$ref": "#/definitions/sha256" },
+    "asset": { "$ref": "#/definitions/asset" },
+    "period": { "$ref": "#/definitions/period" },
+    "holdings": { "$ref": "#/definitions/holdings" },
+    "reconciliations": { "type": "array", "items": { "$ref": "#/definitions/reconciliation" } },
+    "corporateActions": { "type": "array", "items": { "$ref": "#/definitions/corporateAction" } },
+    "controls": { "$ref": "#/definitions/controls" },
+    "events": { "type": "array", "items": { "$ref": "#/definitions/event" } }
+  },
+  "definitions": {
+    "dateTime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "nullableDateTime": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "decimal": { "type": "string", "pattern": "^-?\\d+(?:\\.\\d+)?$" },
+    "nullableDecimal": {
+      "type": ["string", "null"],
+      "pattern": "^-?\\d+(?:\\.\\d+)?$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableString": { "type": ["string", "null"] },
+    "network": { "enum": ["mainnet", "testnet"] },
+    "holderStatus": { "enum": ["active", "frozen", null] },
+    "severity": { "enum": ["high", "medium", "low"] },
+    "breakType": {
+      "enum": [
+        "QUANTITY_MISMATCH",
+        "MISSING_IN_REGISTER",
+        "MISSING_ON_CHAIN",
+        "UNMAPPED_HOLDER",
+        "STATUS_MISMATCH",
+        "SUPPLY_MISMATCH",
+        "INCOMPLETE_HISTORY",
+        "UNRECORDED_MOVEMENT",
+        "UNSETTLED_ENTRY",
+        "MOVEMENT_AMOUNT_MISMATCH",
+        "MISSING",
+        "SHORT",
+        "EXCESS",
+        "UNEXPECTED",
+        "UNINSTRUCTED_CONTROL",
+        "UNEXECUTED_INSTRUCTION"
+      ]
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "network",
+        "code",
+        "issuer",
+        "name",
+        "decimals",
+        "indexedFromLedger",
+        "baselineLedger",
+        "historyFrom",
+        "indexedToLedger",
+        "indexedTo",
+        "ignoredAddresses"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "network": { "$ref": "#/definitions/network" },
+        "code": { "type": "string" },
+        "issuer": { "$ref": "#/definitions/nullableString" },
+        "name": { "type": "string" },
+        "decimals": { "type": "integer", "minimum": 0, "maximum": 18 },
+        "indexedFromLedger": { "type": ["integer", "null"] },
+        "baselineLedger": { "type": ["integer", "null"] },
+        "historyFrom": { "$ref": "#/definitions/nullableDateTime" },
+        "indexedToLedger": { "type": ["integer", "null"] },
+        "indexedTo": { "$ref": "#/definitions/nullableDateTime" },
+        "ignoredAddresses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/definitions/dateTime" },
+        "to": { "$ref": "#/definitions/dateTime" }
+      }
+    },
+    "holdings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asOf", "ledger", "supply", "holderCount", "incomplete", "holders"],
+      "properties": {
+        "asOf": { "$ref": "#/definitions/nullableDateTime" },
+        "ledger": { "type": "integer" },
+        "supply": { "$ref": "#/definitions/decimal" },
+        "holderCount": { "type": "integer" },
+        "incomplete": { "type": "array", "items": { "type": "string" } },
+        "holders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["address", "units", "share", "status", "ignored"],
+            "properties": {
+              "address": { "type": "string" },
+              "units": { "$ref": "#/definitions/decimal" },
+              "share": { "type": "number" },
+              "status": { "$ref": "#/definitions/holderStatus" },
+              "ignored": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "type", "account", "units", "issuedAt", "approvedBy", "reason"],
+      "properties": {
+        "ref": { "type": "string" },
+        "type": { "enum": ["authorize", "freeze", "unfreeze", "clawback"] },
+        "account": { "type": "string" },
+        "units": { "$ref": "#/definitions/nullableDecimal" },
+        "issuedAt": { "$ref": "#/definitions/dateTime" },
+        "approvedBy": { "$ref": "#/definitions/nullableString" },
+        "reason": { "$ref": "#/definitions/nullableString" }
+      }
+    },
+    "break": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "type",
+        "severity",
+        "key",
+        "fingerprint",
+        "message",
+        "noteScope",
+        "status",
+        "note",
+        "noteAuthor",
+        "noteAt",
+        "noteStale"
+      ],
+      "properties": {
+        "scope": { "type": "string" },
+        "type": { "$ref": "#/definitions/breakType" },
+        "severity": { "$ref": "#/definitions/severity" },
+        "key": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "message": { "type": "string" },
+        "firstSeen": { "$ref": "#/definitions/dateTime" },
+        "address": { "$ref": "#/definitions/nullableString" },
+        "holderIds": { "type": "array", "items": { "type": "string" } },
+        "ref": { "$ref": "#/definitions/nullableString" },
+        "txHash": { "$ref": "#/definitions/nullableString" },
+        "eventId": { "$ref": "#/definitions/nullableString" },
+        "chainUnits": { "$ref": "#/definitions/nullableDecimal" },
+        "registerUnits": { "$ref": "#/definitions/nullableDecimal" },
+        "expected": { "$ref": "#/definitions/decimal" },
+        "observed": { "$ref": "#/definitions/decimal" },
+        "difference": { "$ref": "#/definitions/nullableDecimal" },
+        "noteScope": { "type": "string" },
+        "status": { "enum": ["open", "acknowledged", "resolved"] },
+        "note": { "$ref": "#/definitions/nullableString" },
+        "noteAuthor": { "$ref": "#/definitions/nullableString" },
+        "noteAt": { "$ref": "#/definitions/nullableDateTime" },
+        "noteStale": { "type": "boolean" }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "assetId",
+        "createdAt",
+        "registerId",
+        "registerSha256",
+        "asOf",
+        "chainLedger",
+        "chainSyncedAt",
+        "chainBehind",
+        "warnings",
+        "status",
+        "summary",
+        "lines",
+        "movement",
+        "breaks",
+        "openBreaks"
+      ],
+      "properties": {
+        "id": { "type": "integer" },
+        "assetId": { "type": "string" },
+        "createdAt": { "$ref": "#/definitions/dateTime" },
+        "registerId": { "type": "integer" },
+        "registerSha256": { "$ref": "#/definitions/sha256" },
+        "asOf": { "$ref": "#/definitions/dateTime" },
+        "chainLedger": { "type": "integer" },
+        "chainSyncedAt": { "$ref": "#/definitions/nullableDateTime" },
+        "chainBehind": { "type": "boolean" },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "status": { "enum": ["clean", "breaks"] },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "chainSupply",
+            "registerTotal",
+            "supplyDifference",
+            "unmappedUnits",
+            "grossDifference",
+            "chainHolders",
+            "registerHolders",
+            "lines",
+            "matchedLines",
+            "breakCount"
+          ],
+          "properties": {
+            "chainSupply": { "$ref": "#/definitions/decimal" },
+            "registerTotal": { "$ref": "#/definitions/decimal" },
+            "supplyDifference": { "$ref": "#/definitions/decimal" },
+            "unmappedUnits": { "$ref": "#/definitions/decimal" },
+            "grossDifference": { "$ref": "#/definitions/decimal" },
+            "chainHolders": { "type": "integer" },
+            "registerHolders": { "type": "integer" },
+            "lines": { "type": "integer" },
+            "matchedLines": { "type": "integer" },
+            "breakCount": { "type": "integer" }
+          }
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "address",
+              "holderIds",
+              "chainUnits",
+              "registerUnits",
+              "difference",
+              "chainStatus",
+              "registerStatus",
+              "matched"
+            ],
+            "properties": {
+              "address": { "type": "string" },
+              "holderIds": { "type": "array", "items": { "type": "string" } },
+              "chainUnits": { "$ref": "#/definitions/decimal" },
+              "registerUnits": { "$ref": "#/definitions/decimal" },
+              "difference": { "$ref": "#/definitions/decimal" },
+              "chainStatus": { "$ref": "#/definitions/holderStatus" },
+              "registerStatus": { "$ref": "#/definitions/holderStatus" },
+              "matched": { "type": "boolean" }
+            }
+          }
+        },
+        "movement": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["from", "to", "events", "entries", "matched", "breakCount", "matches"],
+          "properties": {
+            "from": { "$ref": "#/definitions/nullableDateTime" },
+            "to": { "$ref": "#/definitions/dateTime" },
+            "events": { "type": "integer" },
+            "entries": { "type": "integer" },
+            "matched": { "type": "integer" },
+            "breakCount": { "type": "integer" },
+            "matches": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ref", "eventId", "txHash", "by"],
+                "properties": {
+                  "ref": { "type": "string" },
+                  "eventId": { "type": "string" },
+                  "txHash": { "type": "string" },
+                  "by": { "enum": ["tx_hash", "attributes"] }
+                }
+              }
+            }
+          }
+        },
+        "breaks": { "type": "array", "items": { "$ref": "#/definitions/break" } },
+        "openBreaks": { "type": "integer" }
+      }
+    },
+    "corporateAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "assetId",
+        "type",
+        "label",
+        "recordTime",
+        "params",
+        "createdAt",
+        "reconciledAt",
+        "state",
+        "snapshot",
+        "result",
+        "openBreaks"
+      ],
+      "properties": {
+        "id": { "type": "integer" },
+        "assetId": { "type": "string" },
+        "type": { "enum": ["dividend", "split", "redemption"] },
+        "label": { "type": "string" },
+        "recordTime": { "$ref": "#/definitions/dateTime" },
+        "params": { "type": "object" },
+        "createdAt": { "$ref": "#/definitions/dateTime" },
+        "reconciledAt": { "$ref": "#/definitions/nullableDateTime" },
+        "state": { "enum": ["scheduled", "pending", "clean", "breaks"] },
+        "snapshot": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["ledger", "takenAt", "holderCount", "holders"],
+          "properties": {
+            "ledger": { "type": "integer" },
+            "takenAt": { "$ref": "#/definitions/dateTime" },
+            "holderCount": { "type": "integer" },
+            "holders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["address", "units"],
+                "properties": {
+                  "address": { "type": "string" },
+                  "units": { "$ref": "#/definitions/decimal" }
+                }
+              }
+            }
+          }
+        },
+        "result": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["reconciledThrough", "warnings", "status", "flowAsset", "summary", "lines", "breaks"],
+          "properties": {
+            "reconciledThrough": { "$ref": "#/definitions/nullableDateTime" },
+            "warnings": { "type": "array", "items": { "type": "string" } },
+            "status": { "enum": ["clean", "breaks"] },
+            "flowAsset": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "code"],
+              "properties": {
+                "id": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            },
+            "summary": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["holders", "expectedTotal", "observedTotal", "difference", "breakCount"],
+              "properties": {
+                "holders": { "type": "integer" },
+                "expectedTotal": { "$ref": "#/definitions/decimal" },
+                "observedTotal": { "$ref": "#/definitions/decimal" },
+                "difference": { "$ref": "#/definitions/decimal" },
+                "breakCount": { "type": "integer" }
+              }
+            },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["address", "basis", "expected", "observed", "difference", "txHashes", "status"],
+                "properties": {
+                  "address": { "type": "string" },
+                  "basis": { "$ref": "#/definitions/decimal" },
+                  "expected": { "$ref": "#/definitions/decimal" },
+                  "observed": { "$ref": "#/definitions/decimal" },
+                  "difference": { "$ref": "#/definitions/decimal" },
+                  "txHashes": { "type": "array", "items": { "type": "string" } },
+                  "status": { "enum": ["ok", "MISSING", "SHORT", "EXCESS", "UNEXPECTED"] }
+                }
+              }
+            },
+            "breaks": { "type": "array", "items": { "$ref": "#/definitions/break" } }
+          }
+        },
+        "openBreaks": { "type": "integer" }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asOf", "summary", "records", "pending", "breaks", "openBreaks"],
+      "properties": {
+        "asOf": { "$ref": "#/definitions/nullableDateTime" },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["controls", "instructed", "uninstructed", "unexecuted", "pending"],
+          "properties": {
+            "controls": { "type": "integer" },
+            "instructed": { "type": "integer" },
+            "uninstructed": { "type": "integer" },
+            "unexecuted": { "type": "integer" },
+            "pending": { "type": "integer" }
+          }
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["eventId", "type", "account", "units", "ledger", "closedAt", "txHash", "instruction"],
+            "properties": {
+              "eventId": { "type": "string" },
+              "type": { "enum": ["authorize", "freeze", "unfreeze", "clawback"] },
+              "account": { "type": "string" },
+              "units": { "$ref": "#/definitions/nullableDecimal" },
+              "ledger": { "type": "integer" },
+              "closedAt": { "$ref": "#/definitions/dateTime" },
+              "txHash": { "type": "string" },
+              "instruction": {
+                "oneOf": [{ "$ref": "#/definitions/instruction" }, { "type": "null" }]
+              }
+            }
+          }
+        },
+        "pending": { "type": "array", "items": { "$ref": "#/definitions/instruction" } },
+        "breaks": { "type": "array", "items": { "$ref": "#/definitions/break" } },
+        "openBreaks": { "type": "integer" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "ledger", "closedAt", "txHash", "from", "to", "units", "authorized"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["transfer", "mint", "burn", "clawback", "set_authorized"] },
+        "ledger": { "type": "integer" },
+        "closedAt": { "$ref": "#/definitions/dateTime" },
+        "txHash": { "type": "string" },
+        "from": { "$ref": "#/definitions/nullableString" },
+        "to": { "$ref": "#/definitions/nullableString" },
+        "units": { "$ref": "#/definitions/nullableDecimal" },
+        "authorized": { "type": ["boolean", "null"] }
+      }
+    }
+  }
+}
