@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { StrKey, nativeToScVal } from "@stellar/stellar-sdk";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent, type AssetCandidate } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
 import { Concord, Invalid, NotFound, describeFailure } from "../src/concord.js";
@@ -1791,6 +1791,43 @@ describe("Concord", () => {
       },
     });
     expect(res2).toMatchObject({ entries: 2, added: 1, replaced: 1, removed: 1 });
+  });
+
+  it("does not let a failed deferred watch in indexing state consume maxAssetsPerOrg", async () => {
+    const h = harness({ maxAssetsPerOrg: 1 });
+    h.chain.baselineResult = undefined;
+    const client = await new Client(h.app).signUp("cap@example.test", "Quota Test");
+    const issuer = key();
+
+    const first = await client.call("/api/assets", {
+      body: { network: "testnet", asset: `BAD:${issuer}` },
+    });
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as { id: string; state: string };
+    expect(firstBody.state).toBe("indexing");
+
+    await vi.waitFor(async () => {
+      const detail = await client.json<{ state: string; syncError?: string }>(`/api/assets/${firstBody.id}`);
+      expect(detail.state).toBe("indexing");
+      expect(detail.syncError).toBeTruthy();
+    });
+
+    const second = await client.call("/api/assets", {
+      body: { network: "testnet", asset: `GOOD:${issuer}`, fromLedger: 1 },
+    });
+    expect(second.status).toBe(201);
+    const secondBody = (await second.json()) as { id: string };
+
+    await vi.waitFor(async () => {
+      const detail = await client.json<{ state: string }>(`/api/assets/${secondBody.id}`);
+      expect(detail.state).toBe("ready");
+    });
+
+    const third = await client.call("/api/assets", {
+      body: { network: "testnet", asset: `THIRD:${issuer}`, fromLedger: 1 },
+    });
+    expect(third.status).toBe(400);
+    expect(await third.text()).toContain("A workspace can watch 1 assets");
   });
 });
 

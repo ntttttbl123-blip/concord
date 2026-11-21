@@ -351,6 +351,15 @@ export class Concord {
     return rows.map(toAsset);
   }
 
+  /**
+   * Count assets consuming the workspace watch limit (`maxAssetsPerOrg`).
+   * Assets still in initial `'indexing'` with a recorded `syncError` have never reached `'ready'`
+   * and are excluded so a failing deferred watch cannot lock up the workspace limit.
+   */
+  quotaAssetCount(): number {
+    return this.assets().filter((a) => a.state === "ready" || !a.syncError).length;
+  }
+
   networkNames(): NetworkName[] {
     return NETWORK_NAMES.filter((name) => this.networks[name]);
   }

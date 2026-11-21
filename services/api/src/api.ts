@@ -192,7 +192,7 @@ export function createApi(tenants: Tenants, auth: Auth, options: ApiOptions): Ho
   priv.post("/assets", async (c) => {
     const { ws, actor } = c.var;
     throttle(c, "watch", 20, 10 * 60_000);
-    if (ws.assets().length >= options.maxAssetsPerOrg) {
+    if (ws.quotaAssetCount() >= options.maxAssetsPerOrg) {
       throw new Invalid(`A workspace can watch ${options.maxAssetsPerOrg} assets. Stop watching one to add another.`);
     }
     const input = await jsonBody<{
