@@ -1044,7 +1044,11 @@ export class Concord {
     });
   }
 
-  importInstructions(ref: string, csv: string) {
+  importInstructions(ref: string, csv: string, options: { mode?: "merge" | "replace" } = {}) {
+    const mode = options.mode ?? "merge";
+    if (mode !== "merge" && mode !== "replace") {
+      throw new Invalid('mode must be "merge" or "replace"');
+    }
     const asset = this.asset(ref);
     let parsed;
     try {
@@ -1052,8 +1056,24 @@ export class Concord {
     } catch (err) {
       throw new Invalid((err as Error).message);
     }
+    if (mode === "replace" && parsed.issues.length > 0) {
+      throw new Invalid(
+        `replace mode refused because the CSV had ${parsed.issues.length} parse issue(s) (line ${parsed.issues[0]!.line}: ${parsed.issues[0]!.message})`,
+      );
+    }
+    let added = 0;
+    let replaced = 0;
+    let removed = 0;
     this.db.tx(() => {
+      const existingRefs = new Set(
+        this.db.all<{ ref: string }>("SELECT ref FROM instructions WHERE asset_id = ?", asset.id).map((r) => r.ref),
+      );
+      const incomingRefs = new Set<string>();
       for (const i of parsed.instructions) {
+        if (existingRefs.has(i.ref)) replaced++;
+        else added++;
+        existingRefs.add(i.ref);
+        incomingRefs.add(i.ref);
         this.db.insert(
           `INSERT OR REPLACE INTO instructions (asset_id, ref, type, account, units, issued_at, approved_by, reason)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1067,8 +1087,15 @@ export class Concord {
           i.reason ?? null,
         );
       }
+      if (mode === "replace") {
+        for (const existingRef of existingRefs) {
+          if (!incomingRefs.has(existingRef)) {
+            removed += this.db.write("DELETE FROM instructions WHERE asset_id = ? AND ref = ?", asset.id, existingRef);
+          }
+        }
+      }
     });
-    return { instructions: parsed.instructions.length, issues: parsed.issues };
+    return { instructions: parsed.instructions.length, added, replaced, removed, issues: parsed.issues };
   }
 
   private instructions(assetId: string): Instruction[] {

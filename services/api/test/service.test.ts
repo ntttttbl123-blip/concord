@@ -1792,6 +1792,70 @@ describe("Concord", () => {
     });
     expect(res2).toMatchObject({ entries: 2, added: 1, replaced: 1, removed: 1 });
   });
+
+  it("supports replace mode in importInstructions with counts, parse-issue guard, and controls update", async () => {
+    const h = harness();
+    const client = await new Client(h.app).signUp("replace@example.test", "Replace Instructions");
+    const issuer = key();
+    const h1 = key();
+    const h2 = key();
+    const h3 = key();
+    const asset = await h.tenants.forOrg(client.orgId).watchAsset({
+      network: "testnet",
+      asset: `FUND:${issuer}`,
+      fromLedger: 1,
+    });
+    h.chain.latest = 10_000;
+    const concord = h.tenants.forOrg(client.orgId);
+    await concord.sync(asset.id);
+
+    const first = concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at\nI1,freeze,${h1},,${at(10)}\nI2,freeze,${h2},,${at(11)}\n`,
+    );
+    expect(first).toEqual({ instructions: 2, added: 2, replaced: 0, removed: 0, issues: [] });
+
+    const beforeControls = concord.controls(asset.id);
+    expect(beforeControls.breaks.some((b) => b.ref === "I1" && b.type === "UNEXECUTED_INSTRUCTION")).toBe(true);
+
+    const merged = concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at\nI2,unfreeze,${h2},,${at(12)}\n`,
+      { mode: "merge" },
+    );
+    expect(merged).toEqual({ instructions: 1, added: 0, replaced: 1, removed: 0, issues: [] });
+
+    const replaced = concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at\nI2,freeze,${h2},,${at(13)}\nI3,freeze,${h3},,${at(14)}\n`,
+      { mode: "replace" },
+    );
+    expect(replaced).toEqual({ instructions: 2, added: 1, replaced: 1, removed: 1, issues: [] });
+
+    const afterControls = concord.controls(asset.id);
+    expect(afterControls.breaks.some((b) => b.ref === "I1")).toBe(false);
+    expect(afterControls.breaks.map((b) => b.ref).sort()).toEqual(["I2", "I3"]);
+
+    // Partially parsed CSV must abort replace mode and leave I2 and I3 intact.
+    expect(() =>
+      concord.importInstructions(
+        asset.id,
+        `ref,type,account,units,issued_at\nI4,freeze,${h1},,${at(15)}\nBAD,not_a_type,${h1},,not-a-date\n`,
+        { mode: "replace" },
+      ),
+    ).toThrow(/parse issue/);
+    expect(concord.controls(asset.id).breaks.map((b) => b.ref).sort()).toEqual(["I2", "I3"]);
+
+    // HTTP POST /api/assets/:id/instructions supports { mode: "replace" }.
+    const res = await client.call(`/api/assets/${asset.id}/instructions`, {
+      body: {
+        csv: `ref,type,account,units,issued_at\nI3,freeze,${h3},,${at(14)}\n`,
+        mode: "replace",
+      },
+    });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ instructions: 1, added: 0, replaced: 1, removed: 1, issues: [] });
+  });
 });
 
 describe("documented input files", () => {
