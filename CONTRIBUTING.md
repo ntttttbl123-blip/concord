@@ -109,6 +109,14 @@ In outline: add the name to the union in `packages/core/src/reconcile.ts`, produ
 view (`apps/web/src/breaks.tsx`). Movement and distribution breaks follow the same pattern in
 `movements.ts` and `distributions.ts`.
 
+## Writing a migration
+
+1. **Append, never edit:** Add new entries only at the end of `ORG_MIGRATIONS` or `CONTROL_MIGRATIONS` in [`services/api/src/schema.ts`](./services/api/src/schema.ts); never edit or reorder shipped migrations (verified by the fixture guard in [`services/api/test/migrations.test.ts`](./services/api/test/migrations.test.ts#L60-L71)).
+2. **Additive first:** Prefer additive changes (`ADD COLUMN` nullable or with `DEFAULT`, new tables, new indexes) over table rebuilds.
+3. **Table rebuilds & foreign keys:** `Db.migrate` sets `PRAGMA foreign_keys = OFF` before applying entries so `DROP TABLE` during a rebuild does not trigger `ON DELETE CASCADE`, and runs `PRAGMA foreign_key_check` before committing — recreate any indexes/triggers owned by the rebuilt table.
+4. **No explicit `COMMIT` / `ROLLBACK`:** `Db.migrate` wraps each entry in its own transaction (`BEGIN` / `COMMIT`); a `COMMIT` inside a migration ends the transaction prematurely and masks errors ([`tenancy.test.ts`](./services/api/test/tenancy.test.ts#L1211-L1225)).
+5. **Upgrade test, fixture, and docs:** Test upgrading from the prior schema version, run [`make-db-fixtures.ts`](./services/api/test/fixtures/make-db-fixtures.ts) to commit the new `org-v<N>.db` / `control-v<N>.db` fixture for [`migrations.test.ts`](./services/api/test/migrations.test.ts#L60-L71), and update [`docs/schema.md`](./docs/schema.md) and [`CHANGELOG.md`](./CHANGELOG.md). See [`docs/contributing/migrations.md`](./docs/contributing/migrations.md) for the full guide.
+
 ## Reporting problems
 
 - Bugs and feature ideas: use the issue templates.
