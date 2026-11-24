@@ -1,0 +1,161 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Concord > renders a printable report with escaped text, both digests and the sign-off trail 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concord reconciliation report FUND 2026-10-01T00:40:00.000Z</title>
+<style>
+:root { color-scheme: light; }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: #f6f7f9; color: #16181d; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; background: #fff; }
+header { border-bottom: 2px solid #16181d; padding-bottom: 16px; margin-bottom: 24px; }
+.eyebrow { margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; color: #5b6070; }
+h1 { margin: 0 0 8px; font-size: 26px; line-height: 1.2; }
+h2 { font-size: 18px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #d8dbe2; }
+h3 { font-size: 15px; margin: 0 0 6px; }
+h4 { font-size: 13px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; color: #5b6070; }
+.meta, .empty { color: #5b6070; }
+section { margin-bottom: 28px; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0 0; }
+th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid #e3e5ea; }
+th { font-weight: 600; color: #3b3f4a; }
+table.facts th { width: 34%; }
+.break { border: 1px solid #d8dbe2; border-radius: 6px; padding: 12px 14px; margin: 12px 0; page-break-inside: avoid; break-inside: avoid; }
+.severity { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; background: #eef0f4; color: #3b3f4a; }
+.severity-high { background: #fde8e6; color: #9f1d14; }
+.severity-medium { background: #fff2d9; color: #8a5a00; }
+.severity-low { background: #e7f0fb; color: #1f4e8c; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+ul { margin: 6px 0 0; padding-left: 20px; }
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  main { max-width: none; padding: 0; }
+  h2 { page-break-after: avoid; break-after: avoid; }
+  .break { page-break-inside: avoid; break-inside: avoid; }
+  @page { margin: 16mm; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Concord reconciliation report</p>
+    <h1>Fixed &lt;Fund&gt; (FUND)</h1>
+    <p class="meta">Run 1 | testnet | created 2026-10-01T01:00:00.000Z | as of 2026-10-01T00:40:00.000Z</p>
+  </header>
+
+  <section>
+    <h2>Integrity</h2>
+    <table class="facts">
+      <tr><th scope="row">Run result SHA-256</th><td><code>6599a7d089c7bd177616c5df478800c01f545a55afa6eac31c960ea8807e1316</code></td></tr>
+      <tr><th scope="row">Register SHA-256</th><td><code>a0d620ad4f66a5124f9e659cd08636f036530b3dfbb68ebc74d3af375fd2f3c3</code></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Summary</h2>
+    <table class="facts">
+      <tr><th scope="row">Status</th><td>breaks</td></tr>
+            <tr><th scope="row">Chain supply</th><td>100</td></tr>
+            <tr><th scope="row">Register total</th><td>90</td></tr>
+            <tr><th scope="row">Supply difference</th><td>10</td></tr>
+            <tr><th scope="row">Unmapped units</th><td>0</td></tr>
+            <tr><th scope="row">Gross difference</th><td>10</td></tr>
+            <tr><th scope="row">Chain holders</th><td>1</td></tr>
+            <tr><th scope="row">Register holders</th><td>1</td></tr>
+            <tr><th scope="row">Lines</th><td>1</td></tr>
+            <tr><th scope="row">Matched lines</th><td>0</td></tr>
+            <tr><th scope="row">Breaks</th><td>2</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Coverage</h2>
+    <table class="facts">
+      <tr><th scope="row">History starts</th><td>2026-10-01T00:03:00.000Z</td></tr>
+            <tr><th scope="row">Start mode</th><td>ledger</td></tr>
+            <tr><th scope="row">Start ledger</th><td>1</td></tr>
+            <tr><th scope="row">Baseline ledger</th><td>n/a</td></tr>
+            <tr><th scope="row">Indexed to ledger</th><td>100</td></tr>
+            <tr><th scope="row">Indexed to time</th><td>2026-10-01T01:40:00.000Z</td></tr>
+            <tr><th scope="row">Chain ledger at run</th><td>3</td></tr>
+            <tr><th scope="row">Chain synced at run</th><td>2026-10-01T01:40:00.000Z</td></tr>
+            <tr><th scope="row">Chain behind register</th><td>no</td></tr>
+            <tr><th scope="row">Ignored addresses</th><td>none</td></tr>
+    </table>
+    <h3>Warnings</h3>
+    <p class="empty">No warnings.</p>
+  </section>
+
+  <section>
+    <h2>Breaks</h2>
+    <article class="break">
+          <h3>QUANTITY_MISMATCH <span class="severity severity-high">high</span></h3>
+          <p>On-chain balance differs from the register</p>
+          <table class="facts">
+            <tr><th scope="row">Scope</th><td>position</td></tr>
+            <tr><th scope="row">Key</th><td>QUANTITY_MISMATCH:GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U</td></tr>
+            <tr><th scope="row">Address</th><td>GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U</td></tr>
+            <tr><th scope="row">Holder IDs</th><td>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</td></tr>
+            <tr><th scope="row">Chain units</th><td>100</td></tr>
+            <tr><th scope="row">Register units</th><td>90</td></tr>
+            <tr><th scope="row">Difference</th><td>10</td></tr>
+            <tr><th scope="row">Expected</th><td>n/a</td></tr>
+            <tr><th scope="row">Observed</th><td>n/a</td></tr>
+            <tr><th scope="row">Transaction</th><td>n/a</td></tr>
+            <tr><th scope="row">Event</th><td>n/a</td></tr>
+            <tr><th scope="row">First seen</th><td>2026-10-01T00:40:00.000Z</td></tr>
+            <tr><th scope="row">Current status</th><td>resolved</td></tr>
+            <tr><th scope="row">Current note</th><td>Fixed &lt;b&gt;off-chain&lt;/b&gt; &amp; verified</td></tr>
+            <tr><th scope="row">Noted by</th><td>Alice &amp; Bob &lt;alice@example.test&gt;</td></tr>
+            <tr><th scope="row">Noted at</th><td>2026-10-01T01:00:00.000Z</td></tr>
+            <tr><th scope="row">Stale note</th><td>no</td></tr>
+          </table>
+          <h4>Sign-off history</h4>
+          <table>
+            <thead><tr><th>When</th><th>Status</th><th>By</th><th>Note</th></tr></thead>
+            <tbody>
+                  <tr><td>2026-10-01T01:00:00.000Z</td><td>resolved</td><td>Alice &amp; Bob &lt;alice@example.test&gt;</td><td>Fixed &lt;b&gt;off-chain&lt;/b&gt; &amp; verified</td></tr>
+            </tbody>
+          </table>
+        </article>
+        <article class="break">
+          <h3>SUPPLY_MISMATCH <span class="severity severity-high">high</span></h3>
+          <p>Units outstanding on-chain differ from the register total</p>
+          <table class="facts">
+            <tr><th scope="row">Scope</th><td>position</td></tr>
+            <tr><th scope="row">Key</th><td>SUPPLY_MISMATCH</td></tr>
+            <tr><th scope="row">Address</th><td>n/a</td></tr>
+            <tr><th scope="row">Holder IDs</th><td>n/a</td></tr>
+            <tr><th scope="row">Chain units</th><td>100</td></tr>
+            <tr><th scope="row">Register units</th><td>90</td></tr>
+            <tr><th scope="row">Difference</th><td>10</td></tr>
+            <tr><th scope="row">Expected</th><td>n/a</td></tr>
+            <tr><th scope="row">Observed</th><td>n/a</td></tr>
+            <tr><th scope="row">Transaction</th><td>n/a</td></tr>
+            <tr><th scope="row">Event</th><td>n/a</td></tr>
+            <tr><th scope="row">First seen</th><td>2026-10-01T00:40:00.000Z</td></tr>
+            <tr><th scope="row">Current status</th><td>open</td></tr>
+            <tr><th scope="row">Current note</th><td>n/a</td></tr>
+            <tr><th scope="row">Noted by</th><td>n/a</td></tr>
+            <tr><th scope="row">Noted at</th><td>n/a</td></tr>
+            <tr><th scope="row">Stale note</th><td>no</td></tr>
+          </table>
+          <h4>Sign-off history</h4>
+          <table>
+            <thead><tr><th>When</th><th>Status</th><th>By</th><th>Note</th></tr></thead>
+            <tbody>
+                  <tr><td colspan="4">No sign-off history.</td></tr>
+            </tbody>
+          </table>
+        </article>
+  </section>
+</main>
+</body>
+</html>
+"
+`;

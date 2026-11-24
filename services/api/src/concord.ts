@@ -175,6 +175,27 @@ const now = () => new Date().toISOString();
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 const MAX_REGISTER_CLOCK_SKEW_MS = 5 * 60_000;
 
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]!);
+const SUMMARY_LABELS: Record<string, string> = {
+  chainSupply: "Chain supply",
+  registerTotal: "Register total",
+  supplyDifference: "Supply difference",
+  unmappedUnits: "Unmapped units",
+  grossDifference: "Gross difference",
+  chainHolders: "Chain holders",
+  registerHolders: "Register holders",
+  lines: "Lines",
+  matchedLines: "Matched lines",
+  breakCount: "Breaks",
+};
+
 function isoTime(input: string, field: string): string {
   const t = Date.parse(input);
   if (Number.isNaN(t)) throw new Invalid(`${field} is not a valid date: "${input}"`);
@@ -1053,7 +1074,11 @@ export class Concord {
     });
   }
 
-  importInstructions(ref: string, csv: string) {
+  importInstructions(ref: string, csv: string, options: { mode?: "merge" | "replace" } = {}) {
+    const mode = options.mode ?? "merge";
+    if (mode !== "merge" && mode !== "replace") {
+      throw new Invalid('mode must be "merge" or "replace"');
+    }
     const asset = this.asset(ref);
     let parsed;
     try {
@@ -1061,8 +1086,24 @@ export class Concord {
     } catch (err) {
       throw new Invalid((err as Error).message);
     }
+    if (mode === "replace" && parsed.issues.length > 0) {
+      throw new Invalid(
+        `replace mode refused because the CSV had ${parsed.issues.length} parse issue(s) (line ${parsed.issues[0]!.line}: ${parsed.issues[0]!.message})`,
+      );
+    }
+    let added = 0;
+    let replaced = 0;
+    let removed = 0;
     this.db.tx(() => {
+      const existingRefs = new Set(
+        this.db.all<{ ref: string }>("SELECT ref FROM instructions WHERE asset_id = ?", asset.id).map((r) => r.ref),
+      );
+      const incomingRefs = new Set<string>();
       for (const i of parsed.instructions) {
+        if (existingRefs.has(i.ref)) replaced++;
+        else added++;
+        existingRefs.add(i.ref);
+        incomingRefs.add(i.ref);
         this.db.insert(
           `INSERT OR REPLACE INTO instructions (asset_id, ref, type, account, units, issued_at, approved_by, reason)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1076,8 +1117,15 @@ export class Concord {
           i.reason ?? null,
         );
       }
+      if (mode === "replace") {
+        for (const existingRef of existingRefs) {
+          if (!incomingRefs.has(existingRef)) {
+            removed += this.db.write("DELETE FROM instructions WHERE asset_id = ? AND ref = ?", asset.id, existingRef);
+          }
+        }
+      }
     });
-    return { instructions: parsed.instructions.length, issues: parsed.issues };
+    return { instructions: parsed.instructions.length, added, replaced, removed, issues: parsed.issues };
   }
 
   private instructions(assetId: string): Instruction[] {
@@ -1252,6 +1300,171 @@ export class Concord {
       breaks,
       openBreaks: breaks.filter((b) => b.status === "open").length,
     };
+  }
+
+  runReport(id: number) {
+    const row = this.db.get("SELECT * FROM runs WHERE id = ?", id);
+    if (!row) throw new NotFound(`reconciliation ${id} not found`);
+    const stored = String(row.result);
+    const result = JSON.parse(stored) as RunResult;
+    const asset = this.asset(String(row.asset_id));
+    const breaks = this.annotate(asset.id, "recon", result.breaks);
+    const digest = sha256(stored);
+    const historyStart = this.historyStart(asset);
+    const value = (raw: unknown) => (raw === null || raw === undefined || raw === "" ? "n/a" : escapeHtml(raw));
+    const facts = (entries: Array<[string, unknown]>) =>
+      entries
+        .map(([label, raw]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${value(raw)}</td></tr>`)
+        .join("\n            ");
+    const summary = facts([
+      ["Status", result.status],
+      ...Object.entries(result.summary).map(([key, raw]): [string, unknown] => [SUMMARY_LABELS[key] ?? key, raw]),
+    ]);
+    const coverage = facts([
+      ["History starts", historyStart ?? null],
+      ["Start mode", asset.startMode],
+      ["Start ledger", asset.startLedger ?? null],
+      ["Baseline ledger", asset.baselineLedger ?? null],
+      ["Indexed to ledger", asset.syncedLedger ?? null],
+      ["Indexed to time", asset.syncedAt ?? null],
+      ["Chain ledger at run", result.chainLedger],
+      ["Chain synced at run", result.chainSyncedAt],
+      ["Chain behind register", result.chainBehind ? "yes" : "no"],
+      ["Ignored addresses", asset.ignore.length === 0 ? "none" : asset.ignore.join(", ")],
+    ]);
+    const warnings =
+      result.warnings.length === 0
+        ? `<p class="empty">No warnings.</p>`
+        : `<ul>\n            ${result.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("\n            ")}\n          </ul>`;
+    const breakSections =
+      breaks.length === 0
+        ? `<p class="empty">No breaks in this run.</p>`
+        : breaks
+            .map((b) => {
+              const history = this.noteHistory(asset.id, "recon", b.key);
+              const historyRows =
+                history.length === 0
+                  ? `<tr><td colspan="4">No sign-off history.</td></tr>`
+                  : history
+                      .map(
+                        (h) =>
+                          `<tr><td>${value(h.at)}</td><td>${value(h.status)}</td><td>${value(h.author)}</td><td>${value(h.note)}</td></tr>`,
+                      )
+                      .join("\n                  ");
+              const factsRows = facts([
+                ["Scope", b.scope],
+                ["Key", b.key],
+                ["Address", b.address],
+                ["Holder IDs", b.holderIds?.join(", ") ?? null],
+                ["Chain units", b.chainUnits],
+                ["Register units", b.registerUnits],
+                ["Difference", b.difference],
+                ["Expected", b.expected],
+                ["Observed", b.observed],
+                ["Transaction", b.txHash],
+                ["Event", b.eventId],
+                ["First seen", b.firstSeen],
+                ["Current status", b.status],
+                ["Current note", b.note],
+                ["Noted by", b.noteAuthor],
+                ["Noted at", b.noteAt],
+                ["Stale note", b.noteStale ? "yes" : "no"],
+              ]);
+              return `<article class="break">
+          <h3>${escapeHtml(b.type)} <span class="severity severity-${escapeHtml(b.severity)}">${escapeHtml(b.severity)}</span></h3>
+          <p>${escapeHtml(b.message)}</p>
+          <table class="facts">
+            ${factsRows}
+          </table>
+          <h4>Sign-off history</h4>
+          <table>
+            <thead><tr><th>When</th><th>Status</th><th>By</th><th>Note</th></tr></thead>
+            <tbody>
+                  ${historyRows}
+            </tbody>
+          </table>
+        </article>`;
+            })
+            .join("\n        ");
+    return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concord reconciliation report ${escapeHtml(asset.code)} ${escapeHtml(result.asOf)}</title>
+<style>
+:root { color-scheme: light; }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: #f6f7f9; color: #16181d; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; background: #fff; }
+header { border-bottom: 2px solid #16181d; padding-bottom: 16px; margin-bottom: 24px; }
+.eyebrow { margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; color: #5b6070; }
+h1 { margin: 0 0 8px; font-size: 26px; line-height: 1.2; }
+h2 { font-size: 18px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #d8dbe2; }
+h3 { font-size: 15px; margin: 0 0 6px; }
+h4 { font-size: 13px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; color: #5b6070; }
+.meta, .empty { color: #5b6070; }
+section { margin-bottom: 28px; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0 0; }
+th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid #e3e5ea; }
+th { font-weight: 600; color: #3b3f4a; }
+table.facts th { width: 34%; }
+.break { border: 1px solid #d8dbe2; border-radius: 6px; padding: 12px 14px; margin: 12px 0; page-break-inside: avoid; break-inside: avoid; }
+.severity { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; background: #eef0f4; color: #3b3f4a; }
+.severity-high { background: #fde8e6; color: #9f1d14; }
+.severity-medium { background: #fff2d9; color: #8a5a00; }
+.severity-low { background: #e7f0fb; color: #1f4e8c; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+ul { margin: 6px 0 0; padding-left: 20px; }
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  main { max-width: none; padding: 0; }
+  h2 { page-break-after: avoid; break-after: avoid; }
+  .break { page-break-inside: avoid; break-inside: avoid; }
+  @page { margin: 16mm; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Concord reconciliation report</p>
+    <h1>${escapeHtml(asset.name)} (${escapeHtml(asset.code)})</h1>
+    <p class="meta">Run ${escapeHtml(row.id)} | ${escapeHtml(asset.network)} | created ${value(row.created_at)} | as of ${value(result.asOf)}</p>
+  </header>
+
+  <section>
+    <h2>Integrity</h2>
+    <table class="facts">
+      <tr><th scope="row">Run result SHA-256</th><td><code>${escapeHtml(digest)}</code></td></tr>
+      <tr><th scope="row">Register SHA-256</th><td><code>${escapeHtml(result.registerSha256)}</code></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Summary</h2>
+    <table class="facts">
+      ${summary}
+    </table>
+  </section>
+
+  <section>
+    <h2>Coverage</h2>
+    <table class="facts">
+      ${coverage}
+    </table>
+    <h3>Warnings</h3>
+    ${warnings}
+  </section>
+
+  <section>
+    <h2>Breaks</h2>
+    ${breakSections}
+  </section>
+</main>
+</body>
+</html>
+`;
   }
 
   runs(ref: string) {

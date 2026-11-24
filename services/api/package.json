@@ -19,16 +19,16 @@
   },
   "dependencies": {
     "@concord/core": "workspace:*",
-    "@hono/node-server": "^2.1.6",
+    "@hono/node-server": "^2.1.11",
     "@stellar/stellar-sdk": "^17.4.0",
-    "hono": "^4.13.16"
+    "hono": "^4.13.19"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
-    "@vitest/coverage-v8": "5.1.0",
+    "@vitest/coverage-v8": "5.1.1",
     "ajv": "^8.20.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }

@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { Worker } from "node:worker_threads";
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync as readFixture } from "node:fs";
-import { Asset, StrKey } from "@stellar/stellar-sdk";
+import { Asset, StrKey, nativeToScVal } from "@stellar/stellar-sdk";
 import { Auth } from "../src/auth.js";
 import { StellarSource } from "../src/chain.js";
 import { Concord } from "../src/concord.js";
@@ -110,6 +110,7 @@ function probes(s: Seeded): Record<string, Probe> {
     "GET /api/assets/:id/reconciliations": p("GET", `/api/assets/${id}/reconciliations`),
     "POST /api/assets/:id/reconciliations": p("POST", `/api/assets/${id}/reconciliations`, { registerId: s.registerId }),
     "GET /api/reconciliations/:id": p("GET", `/api/reconciliations/${s.runId}`),
+    "GET /api/reconciliations/:id/report": p("GET", `/api/reconciliations/${s.runId}/report`),
     "GET /api/assets/:id/actions": p("GET", `/api/assets/${id}/actions`),
     "POST /api/assets/:id/actions": p("POST", `/api/assets/${id}/actions`, { type: "split", recordTime: at(1), num: "2", den: "1" }),
     "GET /api/actions/:id": p("GET", `/api/actions/${s.actionId}`),
@@ -1639,6 +1640,120 @@ describe("chain endpoints", () => {
     const head = await source.latestLedger();
     expect(head.latest).toBe(50);
     expect(calls.map((c) => c.url)).toEqual([a, a, b]);
+  });
+
+  it("getEvents maps cursor, latestLedger, latestLedgerCloseTime, missing events, and skips ignored events", async () => {
+    const rpc = "https://rpc.example";
+    const contractId = StrKey.encodeContract(Buffer.alloc(32, 7));
+    const [a, b] = [key(), key()];
+    const sym = (s: string) => nativeToScVal(s, { type: "symbol" }).toXDR("base64");
+    const addr = (s: string) => nativeToScVal(s, { type: "address" }).toXDR("base64");
+    const str = (s: string) => nativeToScVal(s).toXDR("base64");
+    const i128 = (n: bigint) => nativeToScVal(n, { type: "i128" }).toXDR("base64");
+    const rawEvent = (id: string, topic: string[], value: string) => ({
+      id,
+      ledger: 120,
+      ledgerClosedAt: "2026-09-21T14:13:20.000Z",
+      contractId,
+      txHash: `tx-${id}`,
+      topic,
+      value,
+    });
+
+    const eTransfer = rawEvent("001", [sym("transfer"), addr(a), addr(b), str(`FUND:${a}`)], i128(5n));
+    const eApprove = rawEvent("002", [sym("approve"), addr(a), addr(b), str(`FUND:${a}`)], i128(9n));
+    const eMint = rawEvent("003", [sym("mint"), addr(b), str(`FUND:${a}`)], i128(12n));
+
+    const { deps } = scripted({
+      [rpc]: [
+        () =>
+          new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                events: [eTransfer, eApprove, eMint],
+                cursor: "003",
+                latestLedger: 120,
+                latestLedgerCloseTime: "1790000000",
+              },
+            }),
+          ),
+        () =>
+          new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                events: [],
+                latestLedger: 121,
+                latestLedgerCloseTime: "0",
+              },
+            }),
+          ),
+        () =>
+          new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                latestLedger: 122,
+              },
+            }),
+          ),
+      ],
+    });
+    const source = new StellarSource(network([rpc]), deps);
+
+    // 1. Maps 2 tracked events (skipping approve), passes cursor, and converts latestLedgerCloseTime
+    const firstPage = await source.getEvents(contractId, { startLedger: 100 }, 10);
+    expect(firstPage).toEqual({
+      events: [
+        {
+          id: "001",
+          assetId: contractId,
+          kind: "transfer",
+          ledger: 120,
+          closedAt: "2026-09-21T14:13:20.000Z",
+          txHash: "tx-001",
+          amount: 5n,
+          from: a,
+          to: b,
+        },
+        {
+          id: "003",
+          assetId: contractId,
+          kind: "mint",
+          ledger: 120,
+          closedAt: "2026-09-21T14:13:20.000Z",
+          txHash: "tx-003",
+          amount: 12n,
+          to: b,
+        },
+      ],
+      cursor: "003",
+      latestLedger: 120,
+      latestLedgerClosedAt: "2026-09-21T14:13:20.000Z",
+      skipped: 0,
+    });
+
+    // 2. '0' close time and missing cursor omit both keys (strict key equality)
+    const zeroClosePage = await source.getEvents(contractId, { cursor: "003" }, 10);
+    expect(zeroClosePage).toEqual({
+      events: [],
+      latestLedger: 121,
+      skipped: 0,
+    });
+    expect("cursor" in zeroClosePage).toBe(false);
+    expect("latestLedgerClosedAt" in zeroClosePage).toBe(false);
+
+    // 3. Missing events array and missing latestLedgerCloseTime give [] and omit optional keys
+    const missingEventsPage = await source.getEvents(contractId, { startLedger: 122 }, 10);
+    expect(missingEventsPage).toEqual({
+      events: [],
+      latestLedger: 122,
+      skipped: 0,
+    });
   });
 });
 

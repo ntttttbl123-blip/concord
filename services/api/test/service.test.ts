@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
-import { StrKey, nativeToScVal } from "@stellar/stellar-sdk";
+import { Keypair, StrKey, nativeToScVal } from "@stellar/stellar-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent, type AssetCandidate } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
@@ -164,6 +164,104 @@ describe("decodeEvent", () => {
     expect(page.skipped).toBe(1);
     expect(page.latestLedger).toBe(100);
     expect(page.cursor).toBe("cursor-1");
+  });
+
+  it("never throws across 5000 seeded fuzz inputs", { timeout: 30_000 }, () => {
+    const seed = 0x512c0de;
+    let state = seed >>> 0;
+    const nextU32 = () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return (t ^ (t >>> 14)) >>> 0;
+    };
+    const nextInt = (max: number) => nextU32() % max;
+    const randBase64 = (len: number) => {
+      const buf = Buffer.allocUnsafe(len);
+      for (let j = 0; j < len; j++) buf[j] = nextInt(256);
+      return buf.toString("base64");
+    };
+
+    const validTemplates = [
+      { topic: [sym("transfer"), addr(a), addr(b), str(`FUND:${a}`)], value: i128(5n) },
+      { topic: [sym("mint"), addr(a), addr(b), str(`FUND:${a}`)], value: i128(7n) },
+      { topic: [sym("burn"), addr(b), str(`FUND:${a}`)], value: i128(3n) },
+      { topic: [sym("clawback"), addr(a), addr(b), str(`FUND:${a}`)], value: i128(2n) },
+      { topic: [sym("set_authorized"), addr(b), str(`FUND:${a}`)], value: nativeToScVal(true).toXDR("base64") },
+    ];
+    const hugeVecXdr = nativeToScVal(Array.from({ length: 120 }, (_, k) => k)).toXDR("base64");
+    const extraTopics = [sym("transfer"), sym("mint"), sym("approve"), addr(a), str("extra"), hugeVecXdr];
+    const weirdDates = [
+      "",
+      "garbage",
+      "0",
+      "1970-01-01T00:00:00Z",
+      "+275760-09-13T00:00:00.000Z",
+      "-271821-04-20T00:00:00.000Z",
+      "9999-12-31T23:59:59.999Z",
+      "2026-10-01T00:00:00Z",
+      "2026-02-30T25:61:61Z",
+    ];
+    const mutateB64 = (b64: string) => {
+      const buf = Buffer.from(b64, "base64");
+      if (buf.length === 0) return randBase64(8);
+      const op = nextInt(3);
+      if (op === 0) {
+        buf[nextInt(buf.length)] ^= 1 << nextInt(8);
+        return buf.toString("base64");
+      }
+      if (op === 1) {
+        return buf.subarray(0, nextInt(buf.length)).toString("base64");
+      }
+      return b64.slice(0, Math.max(1, nextInt(b64.length)));
+    };
+
+    for (let i = 0; i < 5000; i++) {
+      const mode = i % 4;
+      let topic: string[];
+      let value: string;
+      let ledgerClosedAt = "2026-10-01T00:00:00Z";
+
+      if (mode === 0) {
+        const count = nextInt(6);
+        topic = Array.from({ length: count }, () => randBase64(nextInt(40)));
+        value = randBase64(nextInt(48));
+      } else if (mode === 1) {
+        const tmpl = validTemplates[nextInt(validTemplates.length)]!;
+        topic = [...tmpl.topic];
+        if (nextInt(2) === 0 && topic.length > 0) topic[nextInt(topic.length)] = mutateB64(topic[nextInt(topic.length)]!);
+        if (nextInt(2) === 0 && topic.length >= 2) {
+          const x = nextInt(topic.length);
+          const y = nextInt(topic.length);
+          [topic[x], topic[y]] = [topic[y]!, topic[x]!];
+        }
+        value = nextInt(2) === 0 ? mutateB64(tmpl.value) : tmpl.value;
+      } else if (mode === 2) {
+        const tmpl = validTemplates[nextInt(validTemplates.length)]!;
+        topic = [...tmpl.topic, ...Array.from({ length: 80 }, () => extraTopics[nextInt(extraTopics.length)]!)];
+        value = nextInt(2) === 0 ? hugeVecXdr : tmpl.value;
+      } else {
+        const tmpl = validTemplates[nextInt(validTemplates.length)]!;
+        topic = [...tmpl.topic];
+        value = tmpl.value;
+        ledgerClosedAt = weirdDates[nextInt(weirdDates.length)]!;
+      }
+
+      const candidate = {
+        ...raw(topic, value),
+        ledgerClosedAt,
+      };
+      let decoded: ReturnType<typeof decodeEvent>;
+      try {
+        decoded = decodeEvent(candidate);
+      } catch (err) {
+        throw new Error(`decodeEvent threw on seed=0x${seed.toString(16)} iter=${i}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      if (decoded !== undefined && (typeof decoded !== "object" || decoded === null || typeof decoded.kind !== "string")) {
+        throw new Error(`Unexpected decodeEvent return on seed=0x${seed.toString(16)} iter=${i}`);
+      }
+    }
   });
 });
 
@@ -353,6 +451,53 @@ describe("Concord", () => {
     expect(concord.auditExport("FUND").signoffHistory).toEqual(history);
     // Sign-offs are wall-clock events, so the period (chain time) does not narrow the trail.
     expect(concord.auditExport("FUND", { from: "2020-01-01", to: "2020-01-02" }).signoffHistory).toEqual(history);
+  });
+
+  it("renders a printable report with escaped text, both digests and the sign-off trail", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T01:00:00Z"));
+    try {
+      const fixed = (byte: number) => Keypair.fromRawEd25519Seed(Buffer.alloc(32, byte)).publicKey();
+      const reportChain = new FakeChain();
+      const reportConcord = new Concord(new Db(":memory:"), {
+        testnet: { passphrase: PASSPHRASE, chain: reportChain },
+      });
+      const reportAsset = await reportConcord.watchAsset({
+        network: "testnet",
+        asset: `FUND:${fixed(1)}`,
+        name: "Fixed <Fund>",
+        fromLedger: 1,
+      });
+      reportChain.push(reportAsset.id, "mint", 3, { to: fixed(2), amount: u(100) });
+      const reg = reportConcord.importRegister("FUND", {
+        csv: `holder_id,holder_name,account,units\n<script>alert("x")</script>,Mallory & Co,${fixed(2)},90\n`,
+        asOf: at(40),
+      });
+      const run = await reportConcord.reconcile("FUND", reg.registerId);
+      const brk = run.breaks[0]!;
+      reportConcord.setNote(
+        "FUND",
+        "recon",
+        brk.key,
+        { fingerprint: brk.fingerprint, status: "resolved", note: "Fixed <b>off-chain</b> & verified" },
+        { id: "u1", label: "Alice & Bob <alice@example.test>" },
+      );
+
+      const html = reportConcord.runReport(run.id);
+      expect(html).toContain("<!doctype html>");
+      expect(html).not.toContain("<script>alert");
+      expect(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
+      expect(html).toContain("Fixed &lt;Fund&gt;");
+      expect(html).toContain("Fixed &lt;b&gt;off-chain&lt;/b&gt; &amp; verified");
+      expect(html).toContain("Alice &amp; Bob &lt;alice@example.test&gt;");
+      expect(html).toContain(run.registerSha256);
+      expect(html).toContain("Run result SHA-256");
+      expect(html).toContain("Sign-off history");
+      expect(() => reportConcord.runReport(999)).toThrow(NotFound);
+      expect(html).toMatchSnapshot();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("narrows the whole controls section of an audit pack to the period, not just its records", async () => {
@@ -1672,6 +1817,13 @@ describe("Concord", () => {
     expect(trail).toMatchObject([{ key: run.breaks[0]!.key, status: "resolved", note: "register corrected" }]);
     const again = await client.json<{ breaks: Array<{ noteAuthor: string }> }>(`/api/reconciliations/${run.id}`);
     expect(again.breaks[0]!.noteAuthor).toBe("Test User <ops@example.test>");
+    const report = await client.call(`/api/reconciliations/${run.id}/report`);
+    expect(report.status).toBe(200);
+    expect(report.headers.get("content-type")).toContain("text/html");
+    const reportHtml = await report.text();
+    expect(reportHtml).toContain("Concord reconciliation report");
+    expect(reportHtml).toContain(`Run ${run.id}`);
+    expect((await client.call("/api/reconciliations/999/report")).status).toBe(404);
     const overview = await client.json<{ networks: string[]; assets: Array<{ code: string; openBreaks: { reconciliation: number } }> }>("/api/overview");
     expect(overview.networks).toEqual(["testnet"]);
     expect(overview.assets[0]).toMatchObject({ code: "FUND", openBreaks: { reconciliation: 1 } });
@@ -1828,6 +1980,70 @@ describe("Concord", () => {
     });
     expect(third.status).toBe(400);
     expect(await third.text()).toContain("A workspace can watch 1 assets");
+  });
+
+  it("supports replace mode in importInstructions with counts, parse-issue guard, and controls update", async () => {
+    const h = harness();
+    const client = await new Client(h.app).signUp("replace@example.test", "Replace Instructions");
+    const issuer = key();
+    const h1 = key();
+    const h2 = key();
+    const h3 = key();
+    const asset = await h.tenants.forOrg(client.orgId).watchAsset({
+      network: "testnet",
+      asset: `FUND:${issuer}`,
+      fromLedger: 1,
+    });
+    h.chain.latest = 10_000;
+    const concord = h.tenants.forOrg(client.orgId);
+    await concord.sync(asset.id);
+
+    const first = concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at\nI1,freeze,${h1},,${at(10)}\nI2,freeze,${h2},,${at(11)}\n`,
+    );
+    expect(first).toEqual({ instructions: 2, added: 2, replaced: 0, removed: 0, issues: [] });
+
+    const beforeControls = concord.controls(asset.id);
+    expect(beforeControls.breaks.some((b) => b.ref === "I1" && b.type === "UNEXECUTED_INSTRUCTION")).toBe(true);
+
+    const merged = concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at\nI2,unfreeze,${h2},,${at(12)}\n`,
+      { mode: "merge" },
+    );
+    expect(merged).toEqual({ instructions: 1, added: 0, replaced: 1, removed: 0, issues: [] });
+
+    const replaced = concord.importInstructions(
+      asset.id,
+      `ref,type,account,units,issued_at\nI2,freeze,${h2},,${at(13)}\nI3,freeze,${h3},,${at(14)}\n`,
+      { mode: "replace" },
+    );
+    expect(replaced).toEqual({ instructions: 2, added: 1, replaced: 1, removed: 1, issues: [] });
+
+    const afterControls = concord.controls(asset.id);
+    expect(afterControls.breaks.some((b) => b.ref === "I1")).toBe(false);
+    expect(afterControls.breaks.map((b) => b.ref).sort()).toEqual(["I2", "I3"]);
+
+    // Partially parsed CSV must abort replace mode and leave I2 and I3 intact.
+    expect(() =>
+      concord.importInstructions(
+        asset.id,
+        `ref,type,account,units,issued_at\nI4,freeze,${h1},,${at(15)}\nBAD,not_a_type,${h1},,not-a-date\n`,
+        { mode: "replace" },
+      ),
+    ).toThrow(/parse issue/);
+    expect(concord.controls(asset.id).breaks.map((b) => b.ref).sort()).toEqual(["I2", "I3"]);
+
+    // HTTP POST /api/assets/:id/instructions supports { mode: "replace" }.
+    const res = await client.call(`/api/assets/${asset.id}/instructions`, {
+      body: {
+        csv: `ref,type,account,units,issued_at\nI3,freeze,${h3},,${at(14)}\n`,
+        mode: "replace",
+      },
+    });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ instructions: 1, added: 0, replaced: 1, removed: 1, issues: [] });
   });
 });
 

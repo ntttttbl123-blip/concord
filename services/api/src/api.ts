@@ -286,9 +286,9 @@ export function createApi(tenants: Tenants, auth: Auth, options: ApiOptions): Ho
     return c.json(c.var.ws.importJournal(id(c), input.csv, { mode: input.mode, allowPartial: input.allowPartial }), 201);
   });
   priv.post("/assets/:id/instructions", async (c) => {
-    const input = await jsonBody<{ csv: string }>(c);
+    const input = await jsonBody<{ csv: string; mode?: "merge" | "replace" }>(c);
     if (typeof input.csv !== "string") throw new Invalid("csv is required");
-    return c.json(c.var.ws.importInstructions(id(c), input.csv), 201);
+    return c.json(c.var.ws.importInstructions(id(c), input.csv, { ...(input.mode !== undefined ? { mode: input.mode } : {}) }), 201);
   });
 
   // ── reconciliation ────────────────────────────────────────────────────────
@@ -305,6 +305,10 @@ export function createApi(tenants: Tenants, auth: Auth, options: ApiOptions): Ho
     return c.json(await c.var.ws.reconcile(id(c), input.registerId, c.var.actor), 201);
   });
   priv.get("/reconciliations/:id", (c) => c.json(c.var.ws.run(numeric(c, "id"))));
+  priv.get("/reconciliations/:id/report", (c) => {
+    c.header("content-type", "text/html; charset=utf-8");
+    return c.body(c.var.ws.runReport(numeric(c, "id")));
+  });
 
   priv.get("/assets/:id/actions", (c) => c.json(c.var.ws.actions(id(c))));
   priv.post("/assets/:id/actions", async (c) => {
